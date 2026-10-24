@@ -188,7 +188,7 @@ create table public.timesheet_entries (
   id           text primary key,
   employee_id  uuid not null references public.employees(id),
   job_id       text references public.jobs(id),
-  visit_id     text references public.visits(id),
+  visit_id     text references public.visits(id) on delete set null,
   started_at   timestamptz not null,
   ended_at     timestamptz,
   minutes      numeric(8,2),

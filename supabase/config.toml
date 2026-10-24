@@ -1,0 +1,19 @@
+project_id = "fmpbjesfoeupybflfrbd"
+
+# These functions are called by Jobber or by the scheduler, not by a signed-in
+# user, so Supabase's login check is off. Each one does its own check instead:
+#   jobber-connect        -> JOBBER_SETUP_KEY
+#   jobber-oauth-callback -> one-time state + PKCE
+#   jobber-webhook        -> Jobber HMAC signature
+#   jobber-sync           -> SYNC_KEY header
+[functions.jobber-connect]
+verify_jwt = false
+
+[functions.jobber-oauth-callback]
+verify_jwt = false
+
+[functions.jobber-webhook]
+verify_jwt = false
+
+[functions.jobber-sync]
+verify_jwt = false
