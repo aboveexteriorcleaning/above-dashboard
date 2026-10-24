@@ -1,5 +1,7 @@
 -- Access-rule tests. Every check raises an error if it fails.
 \set ON_ERROR_STOP on
+-- Same timezone everywhere the tests run (GitHub's database uses UTC).
+set timezone = 'UTC';
 
 -- ---------- every table must have access rules switched on ----------
 do $$
@@ -29,7 +31,7 @@ insert into public.clients (id,name,email,phone) values
  ('C1','Test Client One','one@example.com','+15550000001'),
  ('C2','Test Client Two','two@example.com','+15550000002');
 insert into public.quotes (id,client_id,salesperson_id,status,total,created_at,sent_at,approved_at) values
- ('Q1','C1','11111111-0000-0000-0000-00000000000a','converted',1000,'2026-10-01','2026-10-01','2026-10-02');
+ ('Q1','C1','11111111-0000-0000-0000-00000000000a','converted',1000,'2026-10-01 18:00Z','2026-10-01 19:00Z','2026-10-02 20:00Z');
 insert into public.quote_line_items values
  ('QL1','Q1','Softwash Roof Cleaning',1,1000,1000,false,0),
  ('QL2','Q1','Biannual Roof Cleaning Plan',1,-50,-50,false,1);
