@@ -56,7 +56,7 @@ function monthIso(i: number) { // Nov 2025 .. Oct 2026
 }
 
 export const myScore = (): Scorecard => ({
-  completed_jobs: 19, revenue_credited: 9640, clocked_hours: 112.5, revenue_per_hour: 85.69, work_days: 15,
+  completed_jobs: 19, revenue_credited: 9640, hours: 112.5, hours_source: "clocked", unestimated_visits: 0, revenue_per_hour: 85.69, work_days: 15,
   revenue_per_day: 642.67, upsell_revenue: 410, plans_sold: 3, quotes_sent: 0, quotes_approved: 0, callbacks: 1,
 });
 
@@ -69,7 +69,7 @@ export const myJobs = (): MyJob[] => [
   ["Oct 17", "S. Patel", "Softwash Roof Cleaning", 640, 4.6],
 ].map(([d, c, t, r, h], i) => ({
   job_id: `demo-${i}`, completed_at: new Date(`2026 ${d} 19:00 UTC`).toISOString(),
-  client_name: c as string, job_title: t as string, my_revenue: r as number, my_hours: h as number,
+  client_name: c as string, job_title: t as string, my_revenue: r as number, my_hours: h as number, hours_source: "clocked", crew_size: i % 3 === 0 ? 1 : 2,
 }));
 
 export const company = (): CompanySummary => ({
@@ -79,15 +79,15 @@ export const company = (): CompanySummary => ({
 
 export const teamScores = (): TeamScore[] => [
   { employee_id: "1", full_name: "Crew member A", ...myScore() },
-  { employee_id: "2", full_name: "Crew member B", ...myScore(), revenue_credited: 8820, clocked_hours: 101, revenue_per_hour: 87.33, completed_jobs: 17, upsell_revenue: 260, plans_sold: 1, callbacks: 0 },
-  { employee_id: "3", full_name: "Owner A", ...myScore(), revenue_credited: 7410, clocked_hours: 66, revenue_per_hour: 112.27, completed_jobs: 12, quotes_sent: 41, quotes_approved: 19, plans_sold: 6 },
-  { employee_id: "4", full_name: "Owner B", ...myScore(), revenue_credited: 5405, clocked_hours: 52, revenue_per_hour: 103.94, completed_jobs: 9, quotes_sent: 23, quotes_approved: 10, plans_sold: 2 },
+  { employee_id: "2", full_name: "Crew member B", ...myScore(), revenue_credited: 8820, hours: 101, revenue_per_hour: 87.33, completed_jobs: 17, upsell_revenue: 260, plans_sold: 1, callbacks: 0 },
+  { employee_id: "3", full_name: "Owner A", ...myScore(), revenue_credited: 7410, hours: 66, hours_source: "scheduled", unestimated_visits: 2, revenue_per_hour: 112.27, completed_jobs: 12, quotes_sent: 41, quotes_approved: 19, plans_sold: 6 },
+  { employee_id: "4", full_name: "Owner B", ...myScore(), revenue_credited: 5405, hours: 52, hours_source: "scheduled", revenue_per_hour: 103.94, completed_jobs: 9, quotes_sent: 23, quotes_approved: 10, plans_sold: 2 },
 ];
 
 export const team = (): TeamMember[] => [
-  { id: "3", full_name: "Owner A", email: "owner.a@example.com", role: "owner", active: true, jobber_user_id: "U3", signed_in: true, hourly_cost: null },
-  { id: "4", full_name: "Owner B", email: "owner.b@example.com", role: "owner", active: true, jobber_user_id: "U4", signed_in: false, hourly_cost: null },
-  { id: "1", full_name: "Crew member A", email: "crew.a@example.com", role: "crew", active: true, jobber_user_id: "U1", signed_in: true, hourly_cost: 28 },
-  { id: "2", full_name: "Crew member B", email: null, role: "crew", active: true, jobber_user_id: "U2", signed_in: false, hourly_cost: 27 },
-  { id: "5", full_name: "Seasonal helper", email: null, role: "crew", active: false, jobber_user_id: "U5", signed_in: false, hourly_cost: null },
+  { id: "3", full_name: "Owner A", email: "owner.a@example.com", role: "owner", active: true, jobber_user_id: "U3", signed_in: true, hourly_cost: null, tracks_time: false },
+  { id: "4", full_name: "Owner B", email: "owner.b@example.com", role: "owner", active: true, jobber_user_id: "U4", signed_in: false, hourly_cost: null, tracks_time: false },
+  { id: "1", full_name: "Crew member A", email: "crew.a@example.com", role: "crew", active: true, jobber_user_id: "U1", signed_in: true, hourly_cost: 28, tracks_time: true },
+  { id: "2", full_name: "Crew member B", email: null, role: "crew", active: true, jobber_user_id: "U2", signed_in: false, hourly_cost: 27, tracks_time: true },
+  { id: "5", full_name: "Seasonal helper", email: null, role: "crew", active: false, jobber_user_id: "U5", signed_in: false, hourly_cost: null, tracks_time: true },
 ];

@@ -29,14 +29,17 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <div className="muted">Revenue from your completed jobs, {period.label.toLowerCase()}</div>
           <div className="figure">{money(me.revenue_credited)}</div>
           <p className="muted small" style={{ maxWidth: "60ch" }}>
-            When a job is shared, you&rsquo;re credited by your share of the clocked time on it.
+            Shared jobs are split evenly between everyone assigned to them.
           </p>
         </section>
 
         <section className="section" aria-label="Your work">
           <div className="stats">
             <Stat value={n(me.completed_jobs)} label="Jobs completed" />
-            <Stat value={`${n(me.clocked_hours)} hr`} label="Hours clocked" note={`Across ${n(me.work_days)} work days`} />
+            {me.hours_source === "clocked"
+              ? <Stat value={`${n(me.hours)} hr`} label="Hours clocked" note={`Across ${n(me.work_days)} work days`} />
+              : <Stat value={`${n(me.hours)} hr`} label="Hours on jobs (est.)"
+                  note={`From scheduled visit times across ${n(me.work_days)} days${me.unestimated_visits ? `; ${n(me.unestimated_visits)} visits had no set time` : ""}`} />}
             <Stat value={money(me.revenue_per_hour)} label="Revenue per hour" />
             <Stat value={money(me.revenue_per_day)} label="Revenue per work day" />
           </div>
@@ -55,13 +58,14 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <div className="section-head"><h2 id="jobs">Your jobs</h2><span className="muted small">{n(jobs.length)} completed</span></div>
           {jobs.length ? (
             <table className="rows">
-              <thead><tr><th>Date</th><th>Client</th><th className="hide-sm">Job</th><th className="num">Hours</th><th className="num">Your share</th></tr></thead>
+              <thead><tr><th>Date</th><th>Client</th><th className="hide-sm">Job</th><th className="num hide-sm">Crew</th><th className="num">{me.hours_source === "clocked" ? "Hours" : "Hours (est.)"}</th><th className="num">Your share</th></tr></thead>
               <tbody>
                 {jobs.map((j) => (
                   <tr key={j.job_id}>
                     <td>{shortDate(j.completed_at)}</td>
                     <td>{j.client_name ?? "—"}</td>
                     <td className="hide-sm muted">{j.job_title ?? ""}</td>
+                    <td className="num muted hide-sm">{j.crew_size > 1 ? `${j.crew_size} people` : "Solo"}</td>
                     <td className="num">{j.my_hours ? n(j.my_hours) : "—"}</td>
                     <td className="num">{moneyExact(j.my_revenue)}</td>
                   </tr>

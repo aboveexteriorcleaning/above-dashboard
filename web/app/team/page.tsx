@@ -40,7 +40,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                     <td><strong>{s.full_name}</strong></td>
                     <td className="num">{money(s.revenue_credited)}</td>
                     <td className="num">{n(s.completed_jobs)}</td>
-                    <td className="num">{n(s.clocked_hours)}</td>
+                    <td className="num">{n(s.hours)}{s.hours_source === "scheduled" && <span className="muted"> est.</span>}</td>
                     <td className="num">{money(s.revenue_per_hour)}</td>
                     <td className="num">{money(s.revenue_per_day)}</td>
                     <td className="num">{money(s.upsell_revenue)}</td>
@@ -52,7 +52,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               </tbody>
             </table>
           </div>
-          <p className="muted small">Shared jobs are split by each person&rsquo;s clocked time on the job. Compare people with similar roles and job mix.</p>
+          <p className="muted small">Shared jobs are split evenly between everyone assigned. Hours are clocked time for people who clock in, and scheduled visit time (est.) for people who don&rsquo;t. Compare people with similar roles and job mix.</p>
         </section>
 
         <section className="section" id="setup" aria-labelledby="setup-h">
@@ -86,6 +86,9 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <label style={{ display: "flex", gap: 6, alignItems: "center", margin: 0, fontWeight: 500 }}>
                     <input type="checkbox" name="active" defaultChecked={m.active} style={{ width: "auto" }} /> Active
+                  </label>
+                  <label style={{ display: "flex", gap: 6, alignItems: "center", margin: 0, fontWeight: 500 }}>
+                    <input type="checkbox" name="tracks_time" defaultChecked={m.tracks_time} style={{ width: "auto" }} /> Clocks in
                   </label>
                   <button className="btn" type="submit">Save</button>
                 </div>

@@ -20,13 +20,14 @@ export async function saveMember(form: FormData) {
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) back(`${name}: that email doesn't look right.`, "warn");
   const role = form.get("role") === "owner" ? "owner" : "crew";
   const active = form.get("active") === "on";
+  const tracks_time = form.get("tracks_time") === "on";
   const costRaw = String(form.get("hourly_cost") ?? "").trim();
   const cost = costRaw === "" ? null : Number(costRaw);
   if (cost != null && (!Number.isFinite(cost) || cost < 0 || cost > 500)) back(`${name}: hourly cost should be between 0 and 500.`, "warn");
 
   // Runs as the signed-in owner; the database's access rules allow owners (and only owners) to do this.
   const sb = await supabaseForUser();
-  const { error } = await sb.from("employees").update({ email, role, active }).eq("id", id);
+  const { error } = await sb.from("employees").update({ email, role, active, tracks_time }).eq("id", id);
   if (error) {
     const m = /active owner/i.test(error.message) ? "There must always be at least one active owner."
       : /employees_email_key|duplicate/i.test(error.message) ? "That email is already on another profile."

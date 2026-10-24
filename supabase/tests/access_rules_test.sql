@@ -81,9 +81,11 @@ begin
 
   select * into r from public.my_scorecard('2026-10-01','2026-10-31');
   assert r.completed_jobs = 1, 'connor job count';
-  assert r.revenue_credited = 757.50, format('connor revenue %s', r.revenue_credited); -- 75% of 1010
-  assert r.clocked_hours = 3.0, 'connor hours';
-  assert r.upsell_revenue = 45.00, format('connor upsell %s', r.upsell_revenue);       -- 75% of 60
+  -- Even split: J1 (1010) had Connor + Sage assigned -> 505 each, whoever clocked more.
+  assert r.revenue_credited = 505.00, format('connor revenue %s', r.revenue_credited);
+  assert r.hours = 3.0 and r.hours_source = 'clocked', 'connor hours';
+  assert r.revenue_per_hour = 168.33, format('connor per hour %s', r.revenue_per_hour);
+  assert r.upsell_revenue = 30.00, format('connor upsell %s', r.upsell_revenue);       -- half of 60
 
   select count(*) into n from public.my_jobs('2026-10-01','2026-10-31');
   assert n = 1, 'connor should see only J1';
@@ -115,7 +117,8 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 do $$ declare r record; n int; begin
   select * into r from public.my_scorecard('2026-10-01','2026-10-31');
   assert r.completed_jobs = 2, 'sage job count';
-  assert r.revenue_credited = 652.50, format('sage revenue %s', r.revenue_credited); -- 25% of 1010 + 400
+  assert r.revenue_credited = 905.00, format('sage revenue %s', r.revenue_credited); -- half of 1010 + all of 400
+  assert r.hours = 3.0, format('sage hours %s (all clocked time in period)', r.hours);
   select count(*) into n from public.employees; assert n = 1, 'sage saw other employees';
   raise notice 'ok  Sage: own numbers only';
 end $$;
@@ -234,6 +237,48 @@ do $$ declare o jsonb; begin
   o := public.owner_overview('2026-10-01','2026-10-31');
   assert (o->'revenue'->>'completed')::numeric = 1510, format('pacific boundary: %s', o->'revenue'->>'completed');
   raise notice 'ok  Pacific-time day boundaries';
+end $$;
+reset role;
+
+
+-- ================= CREDIT RULE: even split; owners use scheduled time =================
+-- September job worked by Kale (owner, doesn't clock in) and Connor (clocks in).
+-- Kale also has a stray 0.5h timesheet that must be ignored.
+insert into public.jobs (id,client_id,title,status,total,created_at,completed_at)
+  values ('J10','C2','Owner + crew (test)','archived',800,'2026-09-10 18:00Z','2026-09-15 22:00Z');
+insert into public.job_line_items (id,job_id,product_name,total_price) values ('L10','J10','Softwash Roof Cleaning',800);
+insert into public.visits (id,job_id,status,start_at,end_at)
+  values ('V10','J10','completed','2026-09-15 16:00Z','2026-09-15 18:30Z');           -- 2.5 h scheduled
+insert into public.visits (id,job_id,status,start_at,end_at)
+  values ('V11','J10','completed','2026-09-15 07:00Z','2026-09-16 06:59Z');           -- all-day: can't estimate
+insert into public.visit_assignments values
+  ('V10','11111111-0000-0000-0000-00000000000a'), ('V10','11111111-0000-0000-0000-00000000000c'),
+  ('V11','11111111-0000-0000-0000-00000000000a');
+insert into public.timesheet_entries (id,employee_id,job_id,started_at,ended_at,minutes) values
+  ('T10','11111111-0000-0000-0000-00000000000c','J10','2026-09-15 16:00Z','2026-09-15 20:00Z',240),
+  ('T11','11111111-0000-0000-0000-00000000000a','J10','2026-09-15 16:00Z','2026-09-15 16:30Z',30);  -- stray
+update public.employees set tracks_time = false where role = 'owner';
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare k record; c record; begin
+  select * into k from public.team_scorecards('2026-09-01','2026-09-30') where full_name = 'Kale (test)';
+  select * into c from public.team_scorecards('2026-09-01','2026-09-30') where full_name = 'Connor (test)';
+  assert k.revenue_credited = 400 and c.revenue_credited = 400, format('even split: kale %s connor %s', k.revenue_credited, c.revenue_credited);
+  assert k.hours_source = 'scheduled' and k.hours = 2.5, format('kale hours %s (%s): stray timesheet must be ignored', k.hours, k.hours_source);
+  assert k.unestimated_visits = 1, 'all-day visit should be counted as not estimable';
+  assert k.revenue_per_hour = 160, format('kale per hour %s', k.revenue_per_hour);
+  assert c.hours_source = 'clocked' and c.hours = 4 and c.revenue_per_hour = 100, format('connor %s h, %s/h', c.hours, c.revenue_per_hour);
+  raise notice 'ok  even split; owner hours from schedule; stray owner timesheet ignored';
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare j record; begin
+  select * into j from public.my_jobs('2026-09-01','2026-09-30');
+  assert j.my_revenue = 400 and j.crew_size = 2 and j.my_hours = 4, format('connor job row %s', row_to_json(j));
+  raise notice 'ok  my_jobs shows even share, crew size and my clocked hours';
 end $$;
 reset role;
 

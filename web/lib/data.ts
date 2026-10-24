@@ -25,17 +25,18 @@ export type Overview = {
 };
 export type TrendRow = { month: string; completed_revenue: number; completed_jobs: number;
   booked_revenue: number; quotes_sent: number; quotes_won: number };
-export type Scorecard = { completed_jobs: number; revenue_credited: number; clocked_hours: number;
+export type Scorecard = { completed_jobs: number; revenue_credited: number; hours: number;
+  hours_source: "clocked" | "scheduled"; unestimated_visits: number;
   revenue_per_hour: number | null; work_days: number; revenue_per_day: number | null;
   upsell_revenue: number; plans_sold: number; quotes_sent: number; quotes_approved: number; callbacks: number };
 export type MyJob = { job_id: string; completed_at: string; client_name: string | null; job_title: string | null;
-  my_revenue: number; my_hours: number };
+  my_revenue: number; my_hours: number | null; hours_source: "clocked" | "scheduled"; crew_size: number };
 export type CompanySummary = { completed_revenue: number; completed_jobs: number; new_clients: number;
   quotes_sent: number; quotes_approved: number; quote_approval_rate: number | null;
   booked_next_30_days: number; active_plans: number };
 export type TeamScore = Scorecard & { employee_id: string; full_name: string };
 export type TeamMember = { id: string; full_name: string; email: string | null; role: Role; active: boolean;
-  jobber_user_id: string | null; signed_in: boolean; hourly_cost: number | null };
+  jobber_user_id: string | null; signed_in: boolean; hourly_cost: number | null; tracks_time: boolean };
 export type Freshness = { last_synced: string | null; healthy: boolean };
 
 // numeric columns arrive as strings from Postgres; make them numbers
@@ -83,13 +84,13 @@ export async function getTeam(): Promise<TeamMember[]> {
   if (isDemo()) return demo.team();
   const sb = await supabaseForUser();
   const { data: emps, error } = await sb.from("employees")
-    .select("id, full_name, email, role, active, jobber_user_id, auth_user_id").order("full_name");
+    .select("id, full_name, email, role, active, jobber_user_id, auth_user_id, tracks_time").order("full_name");
   if (error) throw new Error(error.message);
   const { data: costs } = await sb.from("employee_costs").select("employee_id, effective_from, hourly_cost")
     .order("effective_from", { ascending: false });
   return (emps ?? []).map((e: any) => ({
     id: e.id, full_name: e.full_name, email: e.email, role: e.role, active: e.active,
-    jobber_user_id: e.jobber_user_id, signed_in: !!e.auth_user_id,
+    jobber_user_id: e.jobber_user_id, signed_in: !!e.auth_user_id, tracks_time: e.tracks_time !== false,
     hourly_cost: costs?.find((c: any) => c.employee_id === e.id)?.hourly_cost != null
       ? Number(costs!.find((c: any) => c.employee_id === e.id)!.hourly_cost) : null,
   }));
