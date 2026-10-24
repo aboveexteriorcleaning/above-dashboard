@@ -39,7 +39,10 @@ Deno.test({ name: "save Jobber records end to end", sanitizeResources: false, sa
   await saveUsers(users);
   // Children arrive before parents (as can happen with webhooks): placeholders must cover it.
   await saveJobs([job(baseLines), callbackJob], "backfill");
-  await saveQuotes([quote], "backfill");
+  // Several quotes by the same salesperson in one batch (the normal case in real data).
+  await saveQuotes([quote,
+    { ...quote, id: "Q2", quoteNumber: "2", lineItems: { nodes: [] }, request: null },
+    { ...quote, id: "Q3", quoteNumber: "3", lineItems: { nodes: [] }, request: null }], "backfill");
   await saveRequests([{ id: "R1", title: "Quo Request", requestStatus: "converted", source: "Quo ",
     createdAt: "2026-09-30T00:00:00Z", client: { id: "C1" } }], "backfill");
   await saveClients([{ id: "C1", name: "Test Client", isCompany: false, createdAt: "2026-09-30T00:00:00Z",

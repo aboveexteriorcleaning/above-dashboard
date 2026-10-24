@@ -12,8 +12,10 @@ export async function employeeResolver(extraUsers: { id: string; name?: string }
   if (extraUsers.length) {
     await sql`
       insert into public.employees (full_name, jobber_user_id, role, active)
-      select coalesce(u->>'name', 'Jobber user ' || (u->>'id')), u->>'id', 'crew', false
+      select distinct on (u->>'id')   -- the same person often appears many times in one batch
+             coalesce(u->>'name', 'Jobber user ' || (u->>'id')), u->>'id', 'crew', false
       from jsonb_array_elements(${sql.json(extraUsers as never)}) u
+      order by u->>'id', (u->>'name') is null
       on conflict (jobber_user_id) do update
         set full_name = case when excluded.full_name like 'Jobber user %'
                              then public.employees.full_name else excluded.full_name end`;
