@@ -1,0 +1,14 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+supabase/.temp/
+supabase/.branches/
+
+# build output
+node_modules/
+.next/
+.vercel/
+dist/
+.DS_Store
