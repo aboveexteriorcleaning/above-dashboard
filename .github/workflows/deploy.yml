@@ -1,0 +1,104 @@
+# Deploy to Supabase. Runs ONLY when someone clicks "Run workflow" in
+# GitHub → Actions → Deploy. Every test runs first; if any fails, nothing deploys.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "What to do"
+        type: choice
+        default: preview
+        options:
+          - preview          # run tests + show what would change; deploys nothing
+          - everything       # database changes + sync functions
+          - database-only
+          - functions-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: fmpbjesfoeupybflfrbd
+  FUNCTIONS: jobber-connect jobber-oauth-callback jobber-sync jobber-webhook
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Access-rule tests (crew can't see each other, nobody can write Jobber data)
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "create database testdb"
+          for f in supabase/tests/supabase_stub.sql \
+                   supabase/migrations/20261024000001_core_schema.sql \
+                   supabase/migrations/20261024000002_access_rules.sql \
+                   supabase/migrations/20261024000003_sync_support.sql \
+                   supabase/tests/access_rules_test.sql; do
+            psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
+          done
+
+      - name: Type-check sync functions
+        working-directory: supabase/functions
+        run: deno check jobber-*/index.ts
+
+      - name: Sync tests (read-only guard, mapping, database integration)
+        working-directory: supabase/functions
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "create database synctest"
+          for f in ../tests/supabase_stub.sql \
+                   ../migrations/20261024000001_core_schema.sql \
+                   ../migrations/20261024000002_access_rules.sql \
+                   ../migrations/20261024000003_sync_support.sql; do
+            psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
+          done
+          SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_ID"
+
+      - name: Preview database changes
+        run: supabase db push --dry-run
+
+      - name: Apply database changes
+        if: inputs.target == 'everything' || inputs.target == 'database-only'
+        run: supabase db push
+
+      - name: Deploy sync functions
+        if: inputs.target == 'everything' || inputs.target == 'functions-only'
+        run: |
+          for fn in $FUNCTIONS; do
+            supabase functions deploy "$fn" --project-ref "$PROJECT_ID"
+          done

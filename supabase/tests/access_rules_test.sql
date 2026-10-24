@@ -1,6 +1,16 @@
 -- Access-rule tests. Every check raises an error if it fails.
 \set ON_ERROR_STOP on
 
+-- ---------- every table must have access rules switched on ----------
+do $$
+declare missing text;
+begin
+  select string_agg(tablename, ', ') into missing
+  from pg_tables where schemaname = 'public' and not rowsecurity;
+  assert missing is null, format('tables without access rules: %s', missing);
+  raise notice 'ok  every public table has access rules';
+end $$;
+
 -- ---------- sample data (fake people + fake clients) ----------
 insert into auth.users values
  ('00000000-0000-0000-0000-00000000000a'), ('00000000-0000-0000-0000-00000000000b'),
