@@ -10,6 +10,7 @@ on:
         type: choice
         default: check
         options:
+          - status           # last sync time, recent errors, record totals (no customer details)
           - check            # compare our queries to Jobber's schema; reads schema only, saves nothing
           - backfill-all     # import full history, one record type at a time
           - finish           # confirm the history import is complete and switch on the 15-minute sync
@@ -42,10 +43,11 @@ jobs:
             fi
           }
           case "${{ inputs.step }}" in
+            status)      call "mode=status" ;;
             check)       call "mode=check" ;;
             incremental)
               for i in $(seq 1 10); do
-                call "mode=incremental"
+                call "mode=incremental&force=1"
                 grep -q '"done": true' out.json && break
                 if [ "$i" = 10 ]; then echo "::error::sync cycle did not finish in 10 calls"; exit 1; fi
               done ;;

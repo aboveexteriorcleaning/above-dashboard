@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
     if (mode === "check") return json(await schemaCheck());
     if (mode === "backfill") return json(await backfill(only, params.get("restart") === "1"));
 
-    return json(await regularSync(mode === "nightly"));
+    if (mode === "status") return json(await status());
+    return json(await regularSync(mode === "nightly", params.get("force") === "1"));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await markSync("jobber", false, msg).catch(() => {});
@@ -72,7 +73,7 @@ const TYPES: SyncType[] = [
 /** Regular sync, resumable. A "cycle" reads every type's recent changes once. If a
  *  call nears the time limit it saves its place (type, step, page) and the next call
  *  continues. A cycle only counts as successful once every type is done. */
-async function regularSync(nightlyRequested: boolean) {
+async function regularSync(nightlyRequested: boolean, force = false) {
   const sql = db();
   const BUDGET_MS = 100_000;
   const t0 = Date.now();
@@ -84,7 +85,7 @@ async function regularSync(nightlyRequested: boolean) {
   if (!c) {
     // Don't start a fresh cycle more often than every ~14 minutes (the scheduler checks every 5).
     const age = Date.now() - new Date(state.last_success_at).getTime();
-    if (!nightlyRequested && age < 14 * 60_000) return { ok: true, done: true, skipped: "synced recently" };
+    if (!nightlyRequested && !force && age < 14 * 60_000) return { ok: true, done: true, skipped: "synced recently" };
     const overlap = nightlyRequested ? 3 * 86400_000 : 30 * 60_000;
     c = { since: new Date(new Date(state.last_success_at).getTime() - overlap).toISOString(),
           startedAt: new Date().toISOString(), nightly: nightlyRequested, type: 0, step: 0, after: null };
@@ -125,6 +126,31 @@ async function regularSync(nightlyRequested: boolean) {
   await sql`update public.sync_state set last_success_at = ${c.startedAt}, last_error = null where source = 'jobber'`;
   await sql`delete from public.sync_state where source = 'jobber_cycle'`;
   return { ok: true, done: true, nightly: c.nightly, since: c.since, timings };
+}
+
+/** Health check: sync times, last error, and record totals. No customer details. */
+async function status() {
+  const sql = db();
+  const sync = await sql`select source, last_success_at, last_error, last_error_at,
+                                case when source = 'jobber_cycle' then cursor end as in_progress
+                         from public.sync_state where source not like 'jobber_backfill:%' order by source`;
+  const [totals] = await sql`select
+      (select count(*) from public.employees)::int as team_members,
+      (select count(*) from public.clients)::int as clients,
+      (select count(*) from public.clients where name = '(syncing)')::int as clients_pending,
+      (select count(*) from public.requests)::int as requests,
+      (select count(*) from public.quotes)::int as quotes,
+      (select count(*) from public.jobs)::int as jobs,
+      (select count(*) from public.jobs where completed_at is not null)::int as jobs_completed,
+      (select count(*) from public.visits)::int as visits,
+      (select count(*) from public.job_line_items)::int as job_line_items,
+      (select count(*) from public.invoices)::int as invoices,
+      (select count(*) from public.timesheet_entries)::int as timesheet_entries,
+      (select max(synced_at) from public.jobs) as newest_job_sync`;
+  const jobs = await sql`select jobid, schedule, active from cron.job order by jobid`.catch(() => []);
+  const runs = await sql`select status, start_time from cron.job_run_details
+                         order by start_time desc limit 5`.catch(() => []);
+  return { ok: true, sync, totals, scheduler: { jobs, recent_runs: runs } };
 }
 
 /** History import for one record type. Saves its place after every page and stops
