@@ -112,9 +112,15 @@ async function send(
   }
   if (json.errors?.length) throw new Error(`Jobber query error: ${JSON.stringify(json.errors).slice(0, 800)}`);
 
-  // Be a polite neighbour: if the budget is getting low, let it refill before the next call.
-  if (ts && ts.currentlyAvailable < requested * 2 && ts.restoreRate > 0) {
-    await sleep(Math.ceil((requested * 2 - ts.currentlyAvailable) / ts.restoreRate) * 1000);
+  // Be a polite neighbour: if the remaining budget can't cover another request like this
+  // one, let it refill first. (Never wait for more than Jobber's maximum budget: an
+  // earlier version waited for 2x the cost, which for job queries exceeded the maximum
+  // and caused a ~15s pause on every request.)
+  if (ts && ts.restoreRate > 0) {
+    const need = Math.min(requested, ts.maximumAvailable ?? requested);
+    if (ts.currentlyAvailable < need) {
+      await sleep(Math.ceil((need - ts.currentlyAvailable) / ts.restoreRate) * 1000);
+    }
   }
   return json.data;
 }
