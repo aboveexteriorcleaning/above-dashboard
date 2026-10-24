@@ -36,12 +36,14 @@ Deno.serve(async (req) => {
     const since = new Date(new Date(state.last_success_at).getTime() -
       (mode === "nightly" ? 3 * 86400_000 : 30 * 60_000)).toISOString();
     const counts: Record<string, number> = {};
+    const nightly = mode === "nightly";
     for (const t of TYPES) {
       counts[t.name] = 0;
-      const s = t.name === "timesheets" ? new Date(Date.parse(since) - 3 * 86400_000).toISOString() : since;
-      for await (const page of pages(t.query, t.root, t.name === "users" ? {} : { since: s })) {
-        await t.save(page.nodes, "poll");
-        counts[t.name] += page.nodes.length;
+      for (const step of t.changed(since, nightly)) {
+        for await (const page of pages(step.query, t.root, step.vars)) {
+          await t.save(page.nodes, "poll");
+          counts[t.name] += page.nodes.length;
+        }
       }
     }
     await fillPlaceholders("poll");
@@ -56,17 +58,37 @@ Deno.serve(async (req) => {
 });
 
 type Via = "poll" | "backfill";
-type SyncType = { name: string; query: QueryName; all: QueryName; root: string; save: (n: any[], via: Via) => Promise<void> };
+type Step = { query: QueryName; vars: Record<string, unknown> };
+type SyncType = {
+  name: string; all: QueryName; root: string;
+  save: (n: any[], via: Via) => Promise<void>;
+  /** What to read on a regular run: everything that may have changed since `since`. */
+  changed: (since: string, nightly: boolean) => Step[];
+};
+const days = (n: number) => new Date(Date.now() + n * 86400_000).toISOString();
+
 const TYPES: SyncType[] = [
   // Order matters: people and clients before the records that point at them.
-  // `query` = changed-since version (15-minute sync); `all` = full history (backfill).
-  { name: "users",      query: "users",      all: "users",         root: "users",            save: (n) => saveUsers(n) },
-  { name: "clients",    query: "clients",    all: "clientsAll",    root: "clients",          save: saveClients },
-  { name: "requests",   query: "requests",   all: "requestsAll",   root: "requests",         save: saveRequests },
-  { name: "quotes",     query: "quotes",     all: "quotesAll",     root: "quotes",           save: saveQuotes },
-  { name: "jobs",       query: "jobs",       all: "jobsAll",       root: "jobs",             save: saveJobs },
-  { name: "invoices",   query: "invoices",   all: "invoicesAll",   root: "invoices",         save: saveInvoices },
-  { name: "timesheets", query: "timesheets", all: "timesheetsAll", root: "timeSheetEntries", save: saveTimesheets },
+  { name: "users", all: "users", root: "users", save: (n) => saveUsers(n),
+    changed: () => [{ query: "users", vars: {} }] },
+  { name: "clients", all: "clientsAll", root: "clients", save: saveClients,
+    changed: (since) => [{ query: "clients", vars: { since } }] },
+  { name: "requests", all: "requestsAll", root: "requests", save: saveRequests,
+    changed: (since) => [{ query: "requests", vars: { since } }] },
+  { name: "quotes", all: "quotesAll", root: "quotes", save: saveQuotes,
+    changed: (since) => [{ query: "quotes", vars: { since } }] },
+  { name: "jobs", all: "jobsAll", root: "jobs", save: saveJobs,
+    // No "updated since" filter for jobs: new + completed + everything scheduled near now.
+    // Webhooks cover other edits instantly; the nightly pass widens the window.
+    changed: (since, nightly) => [
+      { query: "jobsCreated", vars: { since } },
+      { query: "jobsCompleted", vars: { since } },
+      { query: "jobsScheduled", vars: nightly ? { from: days(-60), to: days(180) } : { from: days(-14), to: days(90) } },
+    ] },
+  { name: "invoices", all: "invoicesAll", root: "invoices", save: saveInvoices,
+    changed: (since) => [{ query: "invoices", vars: { since } }] },
+  { name: "timesheets", all: "timesheetsAll", root: "timeSheetEntries", save: saveTimesheets,
+    changed: (since) => [{ query: "timesheets", vars: { since } }] },
 ];
 
 /** History import for one record type. Saves its place after every page and stops

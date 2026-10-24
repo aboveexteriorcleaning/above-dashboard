@@ -40,12 +40,17 @@ export const QUERIES = {
     requests(first: $first, after: $after, filter: { updatedAt: { after: $since } }) { nodes { ${REQUEST} } ${PAGE} } }`,
   quotes: `query Quotes($first: Int, $after: String, $since: ISO8601DateTime) {
     quotes(first: $first, after: $after, filter: { updatedAt: { after: $since } }) { nodes { ${QUOTE} } ${PAGE} } }`,
-  jobs: `query Jobs($first: Int, $after: String, $since: ISO8601DateTime) {
-    jobs(first: $first, after: $after, filter: { updatedAt: { after: $since } }) { nodes { ${JOB} } ${PAGE} } }`,
+  // Jobs can't be filtered by "updated", so the regular sync combines three windows.
+  jobsCreated: `query JobsCreated($first: Int, $after: String, $since: ISO8601DateTime) {
+    jobs(first: $first, after: $after, filter: { createdAt: { after: $since } }) { nodes { ${JOB} } ${PAGE} } }`,
+  jobsCompleted: `query JobsCompleted($first: Int, $after: String, $since: ISO8601DateTime) {
+    jobs(first: $first, after: $after, filter: { completedAt: { after: $since } }) { nodes { ${JOB} } ${PAGE} } }`,
+  jobsScheduled: `query JobsScheduled($first: Int, $after: String, $from: ISO8601DateTime, $to: ISO8601DateTime) {
+    jobs(first: $first, after: $after, filter: { startAt: { after: $from, before: $to } }) { nodes { ${JOB} } ${PAGE} } }`,
   invoices: `query Invoices($first: Int, $after: String, $since: ISO8601DateTime) {
     invoices(first: $first, after: $after, filter: { updatedAt: { after: $since } }) { nodes { ${INVOICE} } ${PAGE} } }`,
   timesheets: `query Timesheets($first: Int, $after: String, $since: ISO8601DateTime) {
-    timeSheetEntries(first: $first, after: $after, filter: { startAt: { after: $since } }) { nodes { ${TIMESHEET} } ${PAGE} } }`,
+    timeSheetEntries(first: $first, after: $after, filter: { updatedAt: { after: $since } }) { nodes { ${TIMESHEET} } ${PAGE} } }`,
 
   // Full-history versions (no filter): used by the backfill, which reads everything anyway.
   clientsAll: `query ClientsAll($first: Int, $after: String) {
@@ -76,8 +81,9 @@ export type QueryName = keyof typeof QUERIES;
 // records with nested lists (quotes, jobs) cost far more per row. If Jobber still
 // says a request is too big, the client halves the page size automatically.
 export const PAGE_SIZE: Partial<Record<QueryName, number>> = {
-  users: 50, clients: 50, requests: 50, quotes: 15, jobs: 5, invoices: 25, timesheets: 50,
-  clientsAll: 50, requestsAll: 50, quotesAll: 15, jobsAll: 5, invoicesAll: 25, timesheetsAll: 50,
+  users: 50, clients: 50, requests: 50, quotes: 15, invoices: 25, timesheets: 50,
+  jobsCreated: 10, jobsCompleted: 10, jobsScheduled: 10,
+  clientsAll: 50, requestsAll: 50, quotesAll: 15, jobsAll: 10, invoicesAll: 25, timesheetsAll: 50,
 };
 
 // What the schema check verifies: type -> fields we select on it.
@@ -102,5 +108,5 @@ export const MANIFEST: Record<string, string[]> = {
 // Root fields whose `filter` must accept these keys.
 export const FILTERS: Record<string, string[]> = {
   clients: ["updatedAt"], requests: ["updatedAt"], quotes: ["updatedAt"],
-  jobs: ["updatedAt"], invoices: ["updatedAt"], timeSheetEntries: ["startAt"],
+  jobs: ["createdAt", "completedAt", "startAt"], invoices: ["updatedAt"], timeSheetEntries: ["updatedAt"],
 };

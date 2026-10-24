@@ -25,8 +25,10 @@ Live KPI dashboard for Above Exterior Cleaning.
 1. `jobber-sync?mode=check` compares our queries to Jobber's live schema. Writes nothing.
 2. `jobber-sync?mode=backfill&only=<users|clients|requests|quotes|jobs|invoices|timesheets>`
    pulls history one type at a time, then `?mode=backfill&only=done` marks it complete.
-3. After that, pg_cron runs an incremental sync every 15 minutes and a 3-day overlap pass nightly;
-   webhooks keep it live in between.
+3. After that, pg_cron runs an incremental sync every 15 minutes and a wider pass nightly;
+   webhooks keep it live in between. Jobs can't be filtered by "updated" in Jobber, so the
+   regular sync reads jobs created/completed since the last run plus every job scheduled
+   from 14 days ago to 90 days ahead (nightly: 60 days ago to 180 ahead).
 
 Secrets (Supabase → Edge Functions → Secrets): `JOBBER_CLIENT_ID`, `JOBBER_CLIENT_SECRET`,
 `JOBBER_SETUP_KEY`, `SYNC_KEY`. Vault secret `sync_key` (same value as `SYNC_KEY`) for the scheduler.
