@@ -1,0 +1,50 @@
+# Manually run the Jobber sync. GitHub → Actions → Sync → Run workflow.
+# Output is counts and field names only, never customer data.
+name: Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "What to run"
+        type: choice
+        default: check
+        options:
+          - check            # compare our queries to Jobber's schema; reads schema only, saves nothing
+          - backfill-all     # import full history, one record type at a time
+          - incremental      # pull what changed since the last sync
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BASE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/jobber-sync
+      SYNC_KEY: ${{ secrets.SYNC_KEY }}
+    steps:
+      - name: Run
+        run: |
+          set -euo pipefail
+          call() {
+            echo "::group::$1"
+            code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$BASE?$1" --max-time 400)
+            cat out.json; echo; echo "::endgroup::"
+            if [ "$code" != "200" ] || grep -q '"ok": false' out.json; then
+              echo "::error::$1 failed (HTTP $code)"; exit 1
+            fi
+          }
+          case "${{ inputs.step }}" in
+            check)       call "mode=check" ;;
+            incremental) call "mode=incremental" ;;
+            backfill-all)
+              for t in users clients requests quotes jobs invoices timesheets done; do
+                call "mode=backfill&only=$t"
+              done ;;
+          esac
