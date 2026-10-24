@@ -141,7 +141,9 @@ export function query(name: QueryName, variables: Record<string, unknown> = {}) 
 /** Introspection, used by the schema check before any data is written. */
 export function introspectType(typeName: string) {
   return send(
-    `query T($n: String!) { __type(name: $n) { name fields { name args { name } } inputFields { name } } }`,
+    `query T($n: String!) { __type(name: $n) { name
+      fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } }
+      inputFields { name } } }`,
     { n: typeName },
   );
 }

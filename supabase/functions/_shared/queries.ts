@@ -47,6 +47,20 @@ export const QUERIES = {
   timesheets: `query Timesheets($first: Int, $after: String, $since: ISO8601DateTime) {
     timeSheetEntries(first: $first, after: $after, filter: { startAt: { after: $since } }) { nodes { ${TIMESHEET} } ${PAGE} } }`,
 
+  // Full-history versions (no filter): used by the backfill, which reads everything anyway.
+  clientsAll: `query ClientsAll($first: Int, $after: String) {
+    clients(first: $first, after: $after) { nodes { ${CLIENT} } ${PAGE} } }`,
+  requestsAll: `query RequestsAll($first: Int, $after: String) {
+    requests(first: $first, after: $after) { nodes { ${REQUEST} } ${PAGE} } }`,
+  quotesAll: `query QuotesAll($first: Int, $after: String) {
+    quotes(first: $first, after: $after) { nodes { ${QUOTE} } ${PAGE} } }`,
+  jobsAll: `query JobsAll($first: Int, $after: String) {
+    jobs(first: $first, after: $after) { nodes { ${JOB} } ${PAGE} } }`,
+  invoicesAll: `query InvoicesAll($first: Int, $after: String) {
+    invoices(first: $first, after: $after) { nodes { ${INVOICE} } ${PAGE} } }`,
+  timesheetsAll: `query TimesheetsAll($first: Int, $after: String) {
+    timeSheetEntries(first: $first, after: $after) { nodes { ${TIMESHEET} } ${PAGE} } }`,
+
   // Single records, used by the webhook receiver.
   client:  `query C($id: EncodedId!) { client(id: $id)  { ${CLIENT} } }`,
   request: `query R($id: EncodedId!) { request(id: $id) { ${REQUEST} } }`,
@@ -63,6 +77,7 @@ export type QueryName = keyof typeof QUERIES;
 // says a request is too big, the client halves the page size automatically.
 export const PAGE_SIZE: Partial<Record<QueryName, number>> = {
   users: 50, clients: 50, requests: 50, quotes: 15, jobs: 5, invoices: 25, timesheets: 50,
+  clientsAll: 50, requestsAll: 50, quotesAll: 15, jobsAll: 5, invoicesAll: 25, timesheetsAll: 50,
 };
 
 // What the schema check verifies: type -> fields we select on it.

@@ -56,15 +56,17 @@ Deno.serve(async (req) => {
 });
 
 type Via = "poll" | "backfill";
-const TYPES: { name: string; query: QueryName; root: string; save: (n: any[], via: Via) => Promise<void> }[] = [
+type SyncType = { name: string; query: QueryName; all: QueryName; root: string; save: (n: any[], via: Via) => Promise<void> };
+const TYPES: SyncType[] = [
   // Order matters: people and clients before the records that point at them.
-  { name: "users",      query: "users",      root: "users",            save: (n) => saveUsers(n) },
-  { name: "clients",    query: "clients",    root: "clients",          save: saveClients },
-  { name: "requests",   query: "requests",   root: "requests",         save: saveRequests },
-  { name: "quotes",     query: "quotes",     root: "quotes",           save: saveQuotes },
-  { name: "jobs",       query: "jobs",       root: "jobs",             save: saveJobs },
-  { name: "invoices",   query: "invoices",   root: "invoices",         save: saveInvoices },
-  { name: "timesheets", query: "timesheets", root: "timeSheetEntries", save: saveTimesheets },
+  // `query` = changed-since version (15-minute sync); `all` = full history (backfill).
+  { name: "users",      query: "users",      all: "users",         root: "users",            save: (n) => saveUsers(n) },
+  { name: "clients",    query: "clients",    all: "clientsAll",    root: "clients",          save: saveClients },
+  { name: "requests",   query: "requests",   all: "requestsAll",   root: "requests",         save: saveRequests },
+  { name: "quotes",     query: "quotes",     all: "quotesAll",     root: "quotes",           save: saveQuotes },
+  { name: "jobs",       query: "jobs",       all: "jobsAll",       root: "jobs",             save: saveJobs },
+  { name: "invoices",   query: "invoices",   all: "invoicesAll",   root: "invoices",         save: saveInvoices },
+  { name: "timesheets", query: "timesheets", all: "timesheetsAll", root: "timeSheetEntries", save: saveTimesheets },
 ];
 
 /** History import for one record type. Saves its place after every page and stops
@@ -95,7 +97,7 @@ async function backfill(only: string | null, restart: boolean) {
   const startAfter: string | null = restart ? null : (st?.cursor?.after ?? null);
 
   let saved = 0;
-  for await (const page of pages(t.query, t.root, t.name === "users" ? {} : { since: null }, startAfter)) {
+  for await (const page of pages(t.all, t.root, {}, startAfter)) {
     await t.save(page.nodes, "backfill");
     saved += page.nodes.length;
     const cursor = page.hasNext ? { after: page.endCursor } : { complete: true };
@@ -119,10 +121,12 @@ async function fillPlaceholders(via: Via) {
   }
 }
 
-/** Read-only comparison of our query fields with Jobber's real schema. */
+/** Read-only comparison of our query fields with Jobber's real schema,
+ *  including which keys each list's `filter` accepts. */
 async function schemaCheck() {
   const missing: string[] = [];
   const available: Record<string, string[]> = {};
+  const filters: Record<string, { accepts: string[]; otherArgs: string[] }> = {};
   for (const [type, fields] of Object.entries(MANIFEST)) {
     const d = await introspectType(type);
     if (!d.__type) { missing.push(`type ${type} not found`); continue; }
@@ -131,9 +135,15 @@ async function schemaCheck() {
     for (const f of fields) if (!have.has(f)) missing.push(`${type}.${f}`);
     if (missing.length > before) available[type] = [...have].sort() as string[];
     if (type === "Query") {
-      for (const root of Object.keys(FILTERS)) {
+      for (const [root, keys] of Object.entries(FILTERS)) {
         const field = (d.__type.fields ?? []).find((x: any) => x.name === root);
-        if (field && !field.args.some((a: any) => a.name === "filter")) missing.push(`Query.${root}(filter:)`);
+        const filterArg = field?.args.find((a: any) => a.name === "filter");
+        if (!filterArg) { missing.push(`Query.${root}(filter:)`); continue; }
+        const inputName = unwrap(filterArg.type);
+        const input = inputName ? (await introspectType(inputName)).__type : null;
+        const accepts = (input?.inputFields ?? []).map((f: any) => f.name).sort();
+        filters[root] = { accepts, otherArgs: field.args.map((a: any) => a.name) };
+        for (const k of keys) if (!accepts.includes(k)) missing.push(`Query.${root}(filter: { ${k} })`);
       }
     }
   }
@@ -142,5 +152,10 @@ async function schemaCheck() {
   const encoded = await introspectType("EncodedId");
   if (!encoded.__type) missing.push("scalar EncodedId");
   const account = await query("account");
-  return { ok: missing.length === 0, account: account.account, missing, available };
+  return { ok: missing.length === 0, account: account.account, missing, available, filters };
+}
+
+function unwrap(t: any): string | null {
+  while (t && !t.name) t = t.ofType;
+  return t?.name ?? null;
 }

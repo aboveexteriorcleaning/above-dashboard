@@ -12,6 +12,7 @@ on:
         options:
           - check            # compare our queries to Jobber's schema; reads schema only, saves nothing
           - backfill-all     # import full history, one record type at a time
+          - finish           # confirm the history import is complete and switch on the 15-minute sync
           - incremental      # pull what changed since the last sync
 
 permissions:
@@ -51,6 +52,6 @@ jobs:
                   grep -q '"done": true' out.json && break
                   if [ "$i" = 40 ]; then echo "::error::$t did not finish in 40 rounds"; exit 1; fi
                 done
-              done
-              call "mode=backfill&only=done" ;;
+              done ;;
+            finish)      call "mode=backfill&only=done" ;;
           esac
