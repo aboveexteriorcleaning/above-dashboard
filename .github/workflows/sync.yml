@@ -43,7 +43,12 @@ jobs:
           }
           case "${{ inputs.step }}" in
             check)       call "mode=check" ;;
-            incremental) call "mode=incremental" ;;
+            incremental)
+              for i in $(seq 1 10); do
+                call "mode=incremental"
+                grep -q '"done": true' out.json && break
+                if [ "$i" = 10 ]; then echo "::error::sync cycle did not finish in 10 calls"; exit 1; fi
+              done ;;
             backfill-all)
               # Each call imports until it finishes or nears the time limit, then saves its place.
               for t in users clients requests quotes jobs invoices timesheets; do

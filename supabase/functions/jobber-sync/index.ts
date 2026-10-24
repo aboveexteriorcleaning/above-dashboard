@@ -3,7 +3,8 @@
 //   POST ?mode=backfill&only=<type>  -> resumable history import for one record type
 //   POST ?mode=backfill&only=done    -> confirm every type finished; turns on the schedule
 //   POST (default)          -> incremental: everything changed since the last run
-// Called every 15 minutes by pg_cron, and nightly with a 3-day overlap as a safety net.
+// The scheduler calls every 5 minutes: a new cycle starts every ~15 minutes, and a cycle
+// too big for one call continues on the next. Nightly run widens the windows.
 // Requires header  x-sync-key: <SYNC_KEY secret>.
 import { introspectType, pages, query } from "../_shared/jobber.ts";
 import { FILTERS, MANIFEST, type QueryName } from "../_shared/queries.ts";
@@ -26,30 +27,7 @@ Deno.serve(async (req) => {
     if (mode === "check") return json(await schemaCheck());
     if (mode === "backfill") return json(await backfill(only, params.get("restart") === "1"));
 
-    const sql = db();
-    const [state] = await sql`select last_success_at from public.sync_state where source = 'jobber'`;
-    if (!state?.last_success_at) {
-      return json({ ok: false, skipped: "No backfill yet. Run the backfill first." });
-    }
-    const started = new Date();
-    // Overlap windows so nothing slips between runs; upserts make re-reads harmless.
-    const since = new Date(new Date(state.last_success_at).getTime() -
-      (mode === "nightly" ? 3 * 86400_000 : 30 * 60_000)).toISOString();
-    const counts: Record<string, number> = {};
-    const nightly = mode === "nightly";
-    for (const t of TYPES) {
-      counts[t.name] = 0;
-      for (const step of t.changed(since, nightly)) {
-        for await (const page of pages(step.query, t.root, step.vars)) {
-          await t.save(page.nodes, "poll");
-          counts[t.name] += page.nodes.length;
-        }
-      }
-    }
-    await fillPlaceholders("poll");
-    await refreshDerived();
-    await markSync("jobber", true, undefined, { lastRunStarted: started.toISOString(), mode });
-    return json({ ok: true, mode, since, counts });
+    return json(await regularSync(mode === "nightly"));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await markSync("jobber", false, msg).catch(() => {});
@@ -90,6 +68,64 @@ const TYPES: SyncType[] = [
   { name: "timesheets", all: "timesheetsAll", root: "timeSheetEntries", save: saveTimesheets,
     changed: (since) => [{ query: "timesheets", vars: { since } }] },
 ];
+
+/** Regular sync, resumable. A "cycle" reads every type's recent changes once. If a
+ *  call nears the time limit it saves its place (type, step, page) and the next call
+ *  continues. A cycle only counts as successful once every type is done. */
+async function regularSync(nightlyRequested: boolean) {
+  const sql = db();
+  const BUDGET_MS = 100_000;
+  const t0 = Date.now();
+  const [state] = await sql`select last_success_at from public.sync_state where source = 'jobber'`;
+  if (!state?.last_success_at) return { ok: false, skipped: "No backfill yet. Run the backfill first." };
+
+  const [cyc] = await sql`select cursor from public.sync_state where source = 'jobber_cycle'`;
+  let c = cyc?.cursor as null | { since: string; startedAt: string; nightly: boolean; type: number; step: number; after: string | null };
+  if (!c) {
+    // Don't start a fresh cycle more often than every ~14 minutes (the scheduler checks every 5).
+    const age = Date.now() - new Date(state.last_success_at).getTime();
+    if (!nightlyRequested && age < 14 * 60_000) return { ok: true, done: true, skipped: "synced recently" };
+    const overlap = nightlyRequested ? 3 * 86400_000 : 30 * 60_000;
+    c = { since: new Date(new Date(state.last_success_at).getTime() - overlap).toISOString(),
+          startedAt: new Date().toISOString(), nightly: nightlyRequested, type: 0, step: 0, after: null };
+  }
+  const save = async () => {
+    await sql`insert into public.sync_state (source, cursor) values ('jobber_cycle', ${sql.json(c as never)})
+              on conflict (source) do update set cursor = excluded.cursor`;
+  };
+
+  const timings: Record<string, { pages: number; records: number; ms: number }> = {};
+  for (; c.type < TYPES.length; c.type++, c.step = 0, c.after = null) {
+    const t = TYPES[c.type];
+    const steps = t.changed(c.since, c.nightly);
+    for (; c.step < steps.length; c.step++, c.after = null) {
+      const step = steps[c.step];
+      const label = `${t.name}:${step.query}`;
+      const tm = (timings[label] ??= { pages: 0, records: 0, ms: 0 });
+      const s0 = Date.now();
+      for await (const page of pages(step.query, t.root, step.vars, c.after)) {
+        await t.save(page.nodes, "poll");
+        tm.pages++; tm.records += page.nodes.length;
+        c.after = page.hasNext ? page.endCursor : null;
+        if (page.hasNext && Date.now() - t0 > BUDGET_MS) {
+          tm.ms += Date.now() - s0;
+          await save();
+          return { ok: true, done: false, note: "paused to stay under the time limit; continues next call", at: label, timings };
+        }
+      }
+      tm.ms += Date.now() - s0;
+      await save();
+    }
+  }
+  const f0 = Date.now();
+  await fillPlaceholders("poll");
+  await refreshDerived();
+  timings["finish"] = { pages: 0, records: 0, ms: Date.now() - f0 };
+  // Record the cycle's START time as the success time, so changes made while it ran are re-read next cycle.
+  await sql`update public.sync_state set last_success_at = ${c.startedAt}, last_error = null where source = 'jobber'`;
+  await sql`delete from public.sync_state where source = 'jobber_cycle'`;
+  return { ok: true, done: true, nightly: c.nightly, since: c.since, timings };
+}
 
 /** History import for one record type. Saves its place after every page and stops
  *  safely before the function's time limit; call again to continue (done: false).
