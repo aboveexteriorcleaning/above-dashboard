@@ -26,7 +26,8 @@ const INVOICE = `id invoiceNumber invoiceStatus issuedDate dueDate updatedAt
   client { id } jobs(first: 5) { nodes { id } }
   amounts { subtotal total invoiceBalance }`;
 
-const TIMESHEET = `id startAt endAt finalDuration user { id } job { id } visit { id }`;
+// Jobber timesheet entries link to the job, not the individual visit.
+const TIMESHEET = `id startAt endAt finalDuration user { id } job { id }`;
 
 export const QUERIES = {
   account: `query { account { id name } }`,
@@ -72,7 +73,7 @@ export const MANIFEST: Record<string, string[]> = {
   Visit: ["id", "startAt", "endAt", "completedAt", "visitStatus", "assignedUsers", "job"],
   Invoice: ["id", "invoiceNumber", "invoiceStatus", "issuedDate", "dueDate", "updatedAt",
             "client", "jobs", "amounts"],
-  TimeSheetEntry: ["id", "startAt", "endAt", "finalDuration", "user", "job", "visit"],
+  TimeSheetEntry: ["id", "startAt", "endAt", "finalDuration", "user", "job"],
   User: ["id", "name"],
 };
 

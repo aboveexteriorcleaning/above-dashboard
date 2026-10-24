@@ -76,11 +76,14 @@ Deno.serve(async (req) => {
 /** Read-only comparison of our query fields with Jobber's real schema. */
 async function schemaCheck() {
   const missing: string[] = [];
+  const available: Record<string, string[]> = {};
   for (const [type, fields] of Object.entries(MANIFEST)) {
     const d = await introspectType(type);
     if (!d.__type) { missing.push(`type ${type} not found`); continue; }
     const have = new Set((d.__type.fields ?? []).map((f: any) => f.name));
+    const before = missing.length;
     for (const f of fields) if (!have.has(f)) missing.push(`${type}.${f}`);
+    if (missing.length > before) available[type] = [...have].sort() as string[];
     if (type === "Query") {
       for (const root of Object.keys(FILTERS)) {
         const field = (d.__type.fields ?? []).find((x: any) => x.name === root);
@@ -93,5 +96,5 @@ async function schemaCheck() {
   const encoded = await introspectType("EncodedId");
   if (!encoded.__type) missing.push("scalar EncodedId");
   const account = await query("account");
-  return { ok: missing.length === 0, account: account.account, missing };
+  return { ok: missing.length === 0, account: account.account, missing, available };
 }
