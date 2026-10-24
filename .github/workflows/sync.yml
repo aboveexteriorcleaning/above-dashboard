@@ -44,7 +44,13 @@ jobs:
             check)       call "mode=check" ;;
             incremental) call "mode=incremental" ;;
             backfill-all)
-              for t in users clients requests quotes jobs invoices timesheets done; do
-                call "mode=backfill&only=$t"
-              done ;;
+              # Each call imports until it finishes or nears the time limit, then saves its place.
+              for t in users clients requests quotes jobs invoices timesheets; do
+                for i in $(seq 1 40); do
+                  call "mode=backfill&only=$t"
+                  grep -q '"done": true' out.json && break
+                  if [ "$i" = 40 ]; then echo "::error::$t did not finish in 40 rounds"; exit 1; fi
+                done
+              done
+              call "mode=backfill&only=done" ;;
           esac

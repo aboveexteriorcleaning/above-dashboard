@@ -1,7 +1,10 @@
 // Jobber API client: token handling, throttling, read-only enforcement.
 import { db } from "./db.ts";
 import { assertReadOnly } from "./readonly_guard.ts";
-import { QUERIES, type QueryName } from "./queries.ts";
+import { PAGE_SIZE, QUERIES, type QueryName } from "./queries.ts";
+
+/** Jobber refuses a request whose cost exceeds the whole budget; waiting won't help. */
+export class QueryTooExpensive extends Error {}
 
 const API = "https://api.getjobber.com/api/graphql";
 const TOKEN_URL = "https://api.getjobber.com/api/oauth/token";
@@ -68,9 +71,11 @@ async function accessToken(forceRefresh = false): Promise<string> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Raw document sender. Only used for named queries and introspection. */
-async function send(document: string, variables: Record<string, unknown>, attempt = 0): Promise<any> {
+async function send(
+  document: string, variables: Record<string, unknown>, attempt = 0, refreshed = false,
+): Promise<any> {
   assertReadOnly(document);
-  const token = await accessToken(attempt > 0);
+  const token = await accessToken(refreshed);
   const res = await fetch(API, {
     method: "POST",
     headers: {
@@ -80,20 +85,36 @@ async function send(document: string, variables: Record<string, unknown>, attemp
     },
     body: JSON.stringify({ query: document, variables }),
   });
-  if (res.status === 401 && attempt === 0) return send(document, variables, 1);
+  // Expired token: refresh once, never more.
+  if (res.status === 401 && !refreshed) return send(document, variables, attempt, true);
   if (res.status === 429 && attempt < 5) { await sleep(2 ** attempt * 2000); return send(document, variables, attempt + 1); }
   if (!res.ok) throw new Error(`Jobber API ${res.status}: ${await res.text()}`);
 
   const json = await res.json();
+  const cost = json.extensions?.cost;
+  const ts = cost?.throttleStatus;
+  const requested = cost?.requestedQueryCost ?? 0;
   const throttled = json.errors?.some((e: any) => e?.extensions?.code === "THROTTLED");
-  if (throttled && attempt < 5) { await sleep(2 ** attempt * 2000); return send(document, variables, attempt + 1); }
+
+  if (throttled) {
+    if (ts && requested > ts.maximumAvailable) {
+      throw new QueryTooExpensive(`request cost ${requested} > Jobber max ${ts.maximumAvailable}`);
+    }
+    // No cost details and still throttled after a few full refills: assume the request is too big.
+    if (!ts && attempt >= 3) throw new QueryTooExpensive("throttled repeatedly without cost details");
+    if (attempt >= 8) throw new Error("Jobber kept rate-limiting after 8 waits");
+    // Wait exactly as long as the budget needs to refill (plus a little), else back off.
+    const waitMs = ts && ts.restoreRate > 0
+      ? Math.ceil((requested - ts.currentlyAvailable) / ts.restoreRate) * 1000 + 1000
+      : 2 ** attempt * 2000;
+    await sleep(Math.min(Math.max(waitMs, 1000), 60_000));
+    return send(document, variables, attempt + 1);
+  }
   if (json.errors?.length) throw new Error(`Jobber query error: ${JSON.stringify(json.errors).slice(0, 800)}`);
 
-  // Be a polite neighbour: if the cost budget is getting low, wait for it to refill.
-  const ts = json.extensions?.cost?.throttleStatus;
-  const cost = json.extensions?.cost?.requestedQueryCost ?? 0;
-  if (ts && ts.currentlyAvailable < cost * 2 && ts.restoreRate > 0) {
-    await sleep(Math.ceil((cost * 2 - ts.currentlyAvailable) / ts.restoreRate) * 1000);
+  // Be a polite neighbour: if the budget is getting low, let it refill before the next call.
+  if (ts && ts.currentlyAvailable < requested * 2 && ts.restoreRate > 0) {
+    await sleep(Math.ceil((requested * 2 - ts.currentlyAvailable) / ts.restoreRate) * 1000);
   }
   return json.data;
 }
@@ -125,13 +146,27 @@ export function introspectType(typeName: string) {
   );
 }
 
-/** Page through a connection: yields each page of nodes. */
-export async function* pages(name: QueryName, root: string, variables: Record<string, unknown> = {}) {
-  let after: string | null = null;
-  do {
-    const data = await query(name, { ...variables, first: 50, after });
+export type Page = { nodes: any[]; endCursor: string | null; hasNext: boolean };
+
+/** Page through a connection, resuming from `startAfter` if given.
+ *  If Jobber says a page is too expensive, the page size is halved and retried. */
+export async function* pages(
+  name: QueryName, root: string, variables: Record<string, unknown> = {}, startAfter: string | null = null,
+): AsyncGenerator<Page> {
+  let after = startAfter;
+  let size = PAGE_SIZE[name] ?? 25;
+  while (true) {
+    let data: any;
+    try {
+      data = await query(name, { ...variables, first: size, after });
+    } catch (e) {
+      if (e instanceof QueryTooExpensive && size > 1) { size = Math.max(1, Math.floor(size / 2)); continue; }
+      throw e;
+    }
     const conn = data[root];
-    yield conn.nodes as any[];
-    after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
-  } while (after);
+    const hasNext = !!conn.pageInfo.hasNextPage;
+    yield { nodes: conn.nodes as any[], endCursor: conn.pageInfo.endCursor ?? null, hasNext };
+    if (!hasNext) return;
+    after = conn.pageInfo.endCursor;
+  }
 }

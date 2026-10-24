@@ -13,17 +13,17 @@ const QUOTE = `id quoteNumber quoteStatus createdAt updatedAt sentAt
   client { id } request { id } salesperson { id }
   amounts { subtotal discountAmount total }
   lastTransitioned { approvedAt convertedAt }
-  lineItems(first: 50) { nodes { id name quantity unitPrice totalPrice optional } }`;
+  lineItems(first: 30) { nodes { id name quantity unitPrice totalPrice optional } pageInfo { hasNextPage } }`;
 
 const JOB = `id jobNumber title jobStatus jobType createdAt updatedAt startAt completedAt total
   client { id } quote { id }
   property { id address { street1 city postalCode } }
-  lineItems(first: 50) { nodes { id name quantity unitPrice totalPrice createdAt } }
+  lineItems(first: 30) { nodes { id name quantity unitPrice totalPrice createdAt } pageInfo { hasNextPage } }
   visits(first: 50) { nodes { id startAt endAt completedAt visitStatus
-    assignedUsers(first: 10) { nodes { id } } } }`;
+    assignedUsers(first: 6) { nodes { id } } } pageInfo { hasNextPage } }`;
 
 const INVOICE = `id invoiceNumber invoiceStatus issuedDate dueDate updatedAt
-  client { id } jobs(first: 5) { nodes { id } }
+  client { id } jobs(first: 3) { nodes { id } }
   amounts { subtotal total invoiceBalance }`;
 
 // Jobber timesheet entries link to the job, not the individual visit.
@@ -57,6 +57,13 @@ export const QUERIES = {
 } as const;
 
 export type QueryName = keyof typeof QUERIES;
+
+// Starting page size per list. Jobber caps the "cost" of a single request, and
+// records with nested lists (quotes, jobs) cost far more per row. If Jobber still
+// says a request is too big, the client halves the page size automatically.
+export const PAGE_SIZE: Partial<Record<QueryName, number>> = {
+  users: 50, clients: 50, requests: 50, quotes: 15, jobs: 5, invoices: 25, timesheets: 50,
+};
 
 // What the schema check verifies: type -> fields we select on it.
 export const MANIFEST: Record<string, string[]> = {

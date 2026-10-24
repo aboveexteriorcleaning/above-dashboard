@@ -51,7 +51,7 @@ export async function saveQuotes(nodes: any[], via: Via) {
   await recordStatusChanges("quote", mapped.map((m) => ({ id: m.quote.id, status: m.quote.status })));
   await upsert("public.quotes", mapped.map((m) => m.quote));
   await replaceChildren("public.quote_line_items", "quote_id",
-    mapped.map((m) => m.quote.id), mapped.flatMap((m) => m.lines));
+    mapped.filter((m) => m.linesComplete).map((m) => m.quote.id), mapped.flatMap((m) => m.lines));
 }
 
 export async function saveJobs(nodes: any[], via: Via) {
@@ -63,9 +63,10 @@ export async function saveJobs(nodes: any[], via: Via) {
   await recordStatusChanges("job", mapped.map((m) => ({ id: m.job.id, status: m.job.status })));
   await upsert("public.jobs", mapped.map((m) => m.job));
 
-  const jobIds = mapped.map((m) => m.job.id);
-  await replaceChildren("public.job_line_items", "job_id", jobIds, mapped.flatMap((m) => m.lines));
-  await replaceChildren("public.visits", "job_id", jobIds, mapped.flatMap((m) => m.visits));
+  await replaceChildren("public.job_line_items", "job_id",
+    mapped.filter((m) => m.linesComplete).map((m) => m.job.id), mapped.flatMap((m) => m.lines));
+  await replaceChildren("public.visits", "job_id",
+    mapped.filter((m) => m.visitsComplete).map((m) => m.job.id), mapped.flatMap((m) => m.visits));
 
   const assignments = mapped.flatMap((m) => m.assignments);
   const resolve = await employeeResolver(assignments.map((a) => ({ id: a.jobber_user_id })));
@@ -96,13 +97,16 @@ export async function saveTimesheets(nodes: any[], via: Via) {
   await upsert("public.timesheet_entries", rows.map((r) => ({ ...r!, visit_id: r!.visit_id && known.has(r!.visit_id) ? r!.visit_id : null })));
 }
 
-/** Child lists (line items, visits) are replaced wholesale so deletions in Jobber are mirrored. */
-async function replaceChildren(table: string, parentCol: string, parentIds: string[], rows: Record<string, unknown>[]) {
-  if (parentIds.length === 0) return;
+/** Save child rows (line items, visits). Deletions made in Jobber are mirrored ONLY
+ *  for parents whose full list we received (`completeParentIds`); for a parent whose
+ *  list was cut short, nothing is deleted. */
+async function replaceChildren(table: string, parentCol: string, completeParentIds: string[], rows: Record<string, unknown>[]) {
   const sql = db();
-  const keep = rows.map((r) => r.id as string);
-  await sql`delete from ${sql(table)}
-            where ${sql(parentCol)} = any(${parentIds}) and not (id = any(${keep}))`;
+  if (completeParentIds.length > 0) {
+    const keep = rows.map((r) => r.id as string);
+    await sql`delete from ${sql(table)}
+              where ${sql(parentCol)} = any(${completeParentIds}) and not (id = any(${keep}))`;
+  }
   await upsert(table, rows);
 }
 

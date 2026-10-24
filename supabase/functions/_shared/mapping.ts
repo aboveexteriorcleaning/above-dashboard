@@ -63,7 +63,9 @@ export function mapQuote(n: any, employeeIdFor: (jobberUserId: string) => string
     is_optional: !!li.optional,
     sort_order: i,
   }));
-  return { quote, lines };
+  // If Jobber had more line items than one request returns, we only have part of the list.
+  const linesComplete = !n.lineItems?.pageInfo?.hasNextPage;
+  return { quote, lines, linesComplete };
 }
 
 export function mapJob(n: any) {
@@ -115,7 +117,9 @@ export function mapJob(n: any) {
   }));
   const assignments = (n.visits?.nodes ?? []).flatMap((v: any) =>
     (v.assignedUsers?.nodes ?? []).map((u: any) => ({ visit_id: v.id, jobber_user_id: u.id })));
-  return { job, property, lines, visits, assignments };
+  const linesComplete = !n.lineItems?.pageInfo?.hasNextPage;
+  const visitsComplete = !n.visits?.pageInfo?.hasNextPage;
+  return { job, property, lines, visits, assignments, linesComplete, visitsComplete };
 }
 
 export function mapInvoice(n: any) {

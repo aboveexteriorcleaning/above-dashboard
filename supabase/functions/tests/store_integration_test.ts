@@ -78,6 +78,16 @@ Deno.test({ name: "save Jobber records end to end", sanitizeResources: false, sa
   const [{ n: ts }] = await sql`select count(*)::int n from public.timesheet_entries where visit_id = 'V1'`;
   assertEquals(ts, 2, "timesheets keep their visit link through a re-sync");
 
+  // A cut-short list from Jobber (more visits than one request returns) must NOT delete anything.
+  const truncated = job(baseLines);
+  truncated.visits = { nodes: [], pageInfo: { hasNextPage: true } } as any;
+  (truncated.lineItems as any) = { nodes: [baseLines[0]], pageInfo: { hasNextPage: true } };
+  await saveJobs([truncated], "poll");
+  const [{ n: visitsKept }] = await sql`select count(*)::int n from public.visits where job_id = 'J1'`;
+  assertEquals(visitsKept, 1, "visit was deleted from a partial list");
+  const [{ n: linesKept }] = await sql`select count(*)::int n from public.job_line_items where job_id = 'J1'`;
+  assertEquals(linesKept, 2, "line items were deleted from a partial list");
+
   // Status history is recorded once per change.
   await saveJobs([{ ...job(baseLines), jobStatus: "requires_invoicing" }], "webhook");
   const ev = await sql`select from_value, to_value from public.entity_events where entity_type='job' and entity_id='J1' order by id`;
