@@ -47,3 +47,22 @@ cd supabase/functions
 deno test tests/sync_test.ts
 SUPABASE_DB_URL=postgres://postgres@localhost:5432/synctest deno test -A tests/store_integration_test.ts
 ```
+
+## Web app (`web/`)
+Next.js app with Supabase sign-in by email link. Pages:
+- `/overview` (owners): revenue flow booked → completed → invoiced → paid, schedule ahead,
+  quotes, customers, monthly trend, service/area breakdowns, unpaid invoices, request sources
+- `/team` (owners): everyone's scorecards; who can sign in, roles, hourly cost, invites
+- `/me` (everyone): own scorecard and jobs, plus company totals. No rankings.
+
+All numbers come from database functions (`supabase/migrations/…06_dashboard_metrics.sql`),
+so access rules apply on every request. `DEMO_MODE=1` shows sample data and reads nothing real.
+
+Environment (Vercel): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY` (production only; used only to send invites after an owner check).
+Preview deployments: set `DEMO_MODE=1` and no service key.
+
+Supabase Auth settings:
+- Turn off public sign-ups (invites only).
+- Email templates use `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=magiclink`
+  (and `type=invite` for invites) so links work on any device.

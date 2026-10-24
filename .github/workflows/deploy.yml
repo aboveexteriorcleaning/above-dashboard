@@ -54,6 +54,7 @@ jobs:
                    supabase/migrations/20261024000001_core_schema.sql \
                    supabase/migrations/20261024000002_access_rules.sql \
                    supabase/migrations/20261024000003_sync_support.sql \
+                   supabase/migrations/20261024000006_dashboard_metrics.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -69,13 +70,36 @@ jobs:
           for f in ../tests/supabase_stub.sql \
                    ../migrations/20261024000001_core_schema.sql \
                    ../migrations/20261024000002_access_rules.sql \
-                   ../migrations/20261024000003_sync_support.sql; do
+                   ../migrations/20261024000003_sync_support.sql \
+                   ../migrations/20261024000006_dashboard_metrics.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/
 
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Unit tests (Pacific-time periods)
+        run: npm test
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Build (sample-data mode, no real keys)
+        run: npx next build
+        env:
+          DEMO_MODE: "1"
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only
+
   deploy:
-    needs: test
+    needs: [test, web]
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

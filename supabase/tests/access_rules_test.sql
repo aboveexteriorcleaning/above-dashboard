@@ -152,4 +152,87 @@ select pg_temp.expect_fail('insert into public.jobs (id,created_at) values (''X'
 select pg_temp.expect_fail('delete from public.client_profile_views', 'owner -> erase audit log');
 reset role;
 
+
+-- ================= DASHBOARD v1: owner metrics, login linking =================
+-- A new crew member set up by an owner, not yet signed in.
+insert into auth.users values ('00000000-0000-0000-0000-00000000000f');
+insert into public.employees (id, full_name, jobber_user_id, role, email)
+  values ('11111111-0000-0000-0000-00000000000f','New Hire (test)','U-N','crew','newhire@example.com');
+
+-- Connor: owner metrics are blocked; freshness is allowed; can't change own email.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail('select public.owner_overview(''2026-10-01'',''2026-10-31'')', 'crew -> owner overview');
+select pg_temp.expect_fail('select * from public.owner_monthly_trend(12)', 'crew -> owner trend');
+do $$ begin perform * from public.data_freshness(); raise notice 'ok  crew -> data freshness allowed'; end $$;
+do $$ declare n int; begin
+  update public.employees set email = 'connor@evil.example' where auth_user_id = auth.uid();
+  get diagnostics n = row_count; assert n = 0, 'crew changed own email';
+  raise notice 'ok  blocked: crew -> change own email';
+end $$;
+reset role;
+
+-- Stranger signs in with an email nobody set up: nothing linked.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+set request.jwt.claims = '{"email":"stranger@example.com"}';
+do $$ declare r record; begin
+  select * into r from public.link_my_login(); assert not r.linked, 'stranger got linked';
+  raise notice 'ok  stranger -> not linked';
+end $$;
+reset role;
+
+-- Stranger uses Connor's email, but Connor's profile is already linked to Connor: no hijack.
+update public.employees set email = 'connor@example.com' where full_name = 'Connor (test)';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+set request.jwt.claims = '{"email":"connor@example.com"}';
+do $$ declare r record; begin
+  select * into r from public.link_my_login(); assert not r.linked, 'stranger hijacked a linked profile';
+  raise notice 'ok  blocked: stranger -> hijack a linked profile';
+end $$;
+reset role;
+
+-- New hire signs in with the email the owner entered (different case): linked as crew.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+set request.jwt.claims = '{"email":"NewHire@Example.com"}';
+do $$ declare r record; n int; begin
+  select * into r from public.link_my_login();
+  assert r.linked and r.role = 'crew', 'new hire not linked';
+  select count(*) into n from public.employees; assert n = 1, 'new hire sees other employees';
+  select count(*) into n from public.my_jobs('2026-10-01','2026-10-31'); assert n = 0, 'new hire sees jobs';
+  raise notice 'ok  new hire linked as crew, sees only own (empty) data';
+end $$;
+reset role;
+
+-- Kale (owner): overview numbers match the sample data.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; begin
+  o := public.owner_overview('2026-10-01','2026-10-31');
+  assert (o->'revenue'->>'completed')::numeric = 1410, format('overview completed %s', o->'revenue'->>'completed');
+  assert (o->'revenue'->>'completed_jobs')::int = 2, 'overview job count';
+  assert (o->'quotes'->>'sent')::int = 1 and (o->'quotes'->>'won')::int = 1, 'overview quotes';
+  assert jsonb_array_length(o->'by_service') >= 1, 'overview by service';
+  perform * from public.owner_monthly_trend(12);
+  raise notice 'ok  Kale: owner overview + trend';
+end $$;
+-- An owner can't demote every owner (checked at commit, so run as its own statement).
+select pg_temp.expect_fail('update public.employees set role = ''crew'' where role = ''owner''', 'owner -> demote every owner');
+reset role;
+
+-- Day boundaries are Pacific: a job finished 11pm Oct 31 Pacific counts in October.
+insert into public.jobs (id,client_id,title,status,total,created_at,completed_at)
+  values ('J9','C1','Late night (test)','archived',100,'2026-10-20','2026-11-01 06:00Z');
+insert into public.job_line_items (id,job_id,product_name,total_price) values ('L9','J9','Pergola Cleaning',100);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; begin
+  o := public.owner_overview('2026-10-01','2026-10-31');
+  assert (o->'revenue'->>'completed')::numeric = 1510, format('pacific boundary: %s', o->'revenue'->>'completed');
+  raise notice 'ok  Pacific-time day boundaries';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
