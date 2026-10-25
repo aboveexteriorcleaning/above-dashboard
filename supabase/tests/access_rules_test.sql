@@ -848,4 +848,32 @@ do $$ declare u jsonb; c jsonb; p jsonb; x jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Financial, settings, alerts ----------
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_financial('2026-10-01','2026-10-31')$q$, 'crew cannot see financials');
+select pg_temp.expect_fail($q$select public.owner_alerts()$q$, 'crew cannot see alerts');
+do $$ begin
+  update public.business_settings set trucks = 9;
+  assert (select count(*) from public.business_settings) = 0, 'crew cannot read settings';
+  raise notice 'ok  crew cannot read or change settings';
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare f jsonb; a jsonb; begin
+  update public.business_settings set trucks = 2, crew_hours_per_day = 8, work_days_per_week = 7;
+  f := public.owner_financial('2026-10-01','2026-10-07');
+  assert (f->'settings'->>'trucks')::int = 2, 'owner can change settings';
+  assert (f->>'available_hours')::numeric = 7 * 8 * 2, format('available hours %s', f->>'available_hours');
+  assert (f->>'next7_available')::numeric = 112, format('next 7 days %s', f->>'next7_available');
+  f := public.owner_financial('2026-10-01','2026-10-31');
+  assert (f->>'revenue')::numeric = (public.owner_overview('2026-10-01','2026-10-31')->'revenue'->>'completed')::numeric, 'revenue matches overview';
+  assert (f->>'snapshots')::int >= 1, 'forecast snapshot taken';
+  a := public.owner_alerts();
+  assert a ? 'leads_waiting' and a ? 'big_quotes_no_follow_up' and a ? 'next7_utilization', format('alerts %s', a);
+  raise notice 'ok  financial: settings, capacity, revenue, alerts';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

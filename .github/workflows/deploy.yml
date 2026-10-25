@@ -77,6 +77,7 @@ jobs:
                    supabase/migrations/20261025000026_growth.sql \
                    supabase/migrations/20261025000027_operations.sql \
                    supabase/migrations/20261025000028_revenue.sql \
+                   supabase/migrations/20261025000029_financial.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -115,7 +116,8 @@ jobs:
                    ../migrations/20261025000025_meta_ads.sql \
                    ../migrations/20261025000026_growth.sql \
                    ../migrations/20261025000027_operations.sql \
-                   ../migrations/20261025000028_revenue.sql; do
+                   ../migrations/20261025000028_revenue.sql \
+                   ../migrations/20261025000029_financial.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/

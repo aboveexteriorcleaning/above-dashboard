@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -295,4 +295,18 @@ export const customers = (): CustomerKpis => ({
 export const planExtras = (): PlanExtras => ({
   mrr: 1925, avg_plan_value: 745, renewal_rate: 0.78, renewal_base: 18, cancellation_rate: 0.16,
   plan_upsell_revenue: 1380, plan_lifetime_avg: 2140, non_plan_lifetime_avg: 890,
+});
+
+export const financial = (): FinancialKpis => ({
+  settings: { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 },
+  revenue: 31275, invoiced: 28910, collected: 24180, labor_cost: 6840, headcount: 4, field_headcount: 4,
+  open_ar: 6700, invoiced_90d: 92400, available_hours: 342, scheduled_hours: 236,
+  next7_available: 96, next7_booked: 71, next14_available: 192, next14_booked: 118,
+  booked_jobs: 41, cancelled_jobs: 2, cancelled_value: 1140, booking_lead_days: 9.5,
+  by_zip: [{ zip: "98513", jobs: 9, revenue: 8120, gross_after_labor: 6340 }, { zip: "98516", jobs: 8, revenue: 7340, gross_after_labor: 5810 }, { zip: "98502", jobs: 6, revenue: 4980, gross_after_labor: 3900 }],
+  forecast: [], snapshots: 1,
+});
+export const alerts = (): Alerts => ({
+  leads_waiting: 2, follow_ups_due: 2, missed_not_returned: 1, big_quotes_no_follow_up: 3, plans_need_booking: 6, long_crew_days: 1,
+  next7_utilization: 0.74, callback_rate_30: 0.054, callback_rate_prior: 0.031, approval_rate_30: 0.41, approval_rate_prior: 0.47,
 });

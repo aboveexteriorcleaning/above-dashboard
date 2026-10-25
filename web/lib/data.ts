@@ -331,3 +331,33 @@ export async function getPlanExtras(from: string, to: string): Promise<PlanExtra
   if (isDemo()) return demo.planExtras();
   return await rpc<PlanExtras>("owner_plan_extras", { p_from: from, p_to: to });
 }
+
+// ---------- financial + alerts (owners) ----------
+export type FinancialKpis = {
+  settings: { crew_hours_per_day: number; work_days_per_week: number; trucks: number };
+  revenue: number; invoiced: number; collected: number; labor_cost: number; headcount: number; field_headcount: number;
+  open_ar: number; invoiced_90d: number; available_hours: number; scheduled_hours: number;
+  next7_available: number; next7_booked: number; next14_available: number; next14_booked: number;
+  booked_jobs: number; cancelled_jobs: number; cancelled_value: number; booking_lead_days: number | null;
+  by_zip: { zip: string; jobs: number; revenue: number; gross_after_labor: number }[];
+  forecast: { day: string; booked_30: number; actual: number }[]; snapshots: number;
+};
+export type Alerts = {
+  leads_waiting: number; follow_ups_due: number; missed_not_returned: number; big_quotes_no_follow_up: number;
+  plans_need_booking: number; long_crew_days: number; next7_utilization: number | null;
+  callback_rate_30: number | null; callback_rate_prior: number | null; approval_rate_30: number | null; approval_rate_prior: number | null;
+};
+export async function getFinancial(from: string, to: string): Promise<FinancialKpis> {
+  if (isDemo()) return demo.financial();
+  return await rpc<FinancialKpis>("owner_financial", { p_from: from, p_to: to });
+}
+export async function getAlerts(): Promise<Alerts> {
+  if (isDemo()) return demo.alerts();
+  return await rpc<Alerts>("owner_alerts");
+}
+export async function getSettings(): Promise<FinancialKpis["settings"]> {
+  if (isDemo()) return { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 };
+  const sb = await supabaseForUser();
+  const { data } = await sb.from("business_settings").select("crew_hours_per_day, work_days_per_week, trucks").limit(1).maybeSingle();
+  return (data as any) ?? { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 };
+}

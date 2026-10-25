@@ -83,3 +83,19 @@ export async function inviteMember(form: FormData) {
   }
   back(`Invite sent to ${emp!.email}.`);
 }
+
+export async function saveSettings(form: FormData) {
+  await requireSession(["owner"]);
+  if (isDemo()) back("Preview mode: changes aren't saved.", "warn");
+  const hours = Number(form.get("crew_hours_per_day"));
+  const days = Math.trunc(Number(form.get("work_days_per_week")));
+  const trucks = Math.trunc(Number(form.get("trucks")));
+  if (!(hours >= 1 && hours <= 16)) back("Crew hours per day should be between 1 and 16.", "warn");
+  if (!(days >= 1 && days <= 7)) back("Work days per week should be between 1 and 7.", "warn");
+  if (!(trucks >= 1 && trucks <= 50)) back("Trucks should be between 1 and 50.", "warn");
+  const sb = await supabaseForUser();
+  const { error } = await sb.from("business_settings").update({ crew_hours_per_day: hours, work_days_per_week: days, trucks, updated_at: new Date().toISOString() }).eq("id", true);
+  if (error) back(`Couldn't save settings: ${error.message}`, "warn");
+  revalidatePath("/financial");
+  back("Settings saved.");
+}

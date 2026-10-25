@@ -5,6 +5,8 @@
 drop materialized view app.quo_leads;
 drop view app.quo_leads_live;
 create view app.quo_leads_live as
+with jr as materialized (select client_id, completed_at, revenue from app.job_revenue),
+     cp as materialized (select distinct on (client_id) client_id, postal_code from public.properties order by client_id, id)
 select y.*,
        -- outbound calls/texts by a person before the first two-way contact (or ever, if none)
        (select count(*) from public.communications c
@@ -29,11 +31,11 @@ from (
                      where c.contact_phone = x.contact_phone and c.occurred_at >= x.lead_at
                        and (c.direction = 'outbound' or (c.kind = 'call' and c.answered_at is not null))) end as first_any_response_at,
          -- completed (realized) revenue from this lead's Jobber client(s) within 180 days
-         (select coalesce(sum(r.revenue), 0) from app.job_revenue r
+         (select coalesce(sum(r.revenue), 0) from jr r
            where r.client_id = any(x.client_ids)
              and r.completed_at between x.lead_at - interval '1 day' and x.lead_at + interval '180 days') as realized_revenue,
-         (select p.postal_code from public.properties p where p.client_id = any(x.client_ids)
-           order by p.id limit 1) as zip
+         (select p.postal_code from cp p where p.client_id = any(x.client_ids)
+           order by p.client_id limit 1) as zip
   from (select x.*,
        case when x.quoted_at is not null and x.contact_at is not null
             then greatest(extract(epoch from (x.quoted_at - x.contact_at)) / 3600.0, 0) end as hours_to_quote

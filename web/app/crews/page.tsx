@@ -88,7 +88,7 @@ export default async function Crews({ searchParams }: { searchParams: Promise<{ 
               ))}</tbody>
             </table>
           ) : <p className="muted">None in this period.</p>}
-          <p className="muted small" style={{ maxWidth: "75ch" }}>Crews clock in for the day, not per job, so this compares the whole day: drive time and breaks are inside the clocked hours. Drive time per job, travel %, and revenue per truck need GPS or per-job clock-ins.</p>
+          <p className="muted small" style={{ maxWidth: "75ch" }}>Crews clock in for the day, not per job, so this compares the whole day: drive time and breaks are inside the clocked hours. Drive time per job and travel % need GPS or per-job clock-ins. Revenue per truck is on the Financial page.</p>
         </section>
       </main>
     </Shell>

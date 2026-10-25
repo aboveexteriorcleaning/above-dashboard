@@ -1,7 +1,7 @@
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Aging, BarRows, MoneyFlow, Stat, Trend } from "@/components/charts";
-import { getOverview, getTrend } from "@/lib/data";
+import { getAlerts, getOverview, getTrend } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
 import { change, money, n, pct, shortDate } from "@/lib/format";
 
@@ -10,9 +10,21 @@ export const dynamic = "force-dynamic";
 export default async function Overview({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const [o, trend] = await Promise.all([getOverview(period.from, period.to), getTrend()]);
+  const [o, trend, al] = await Promise.all([getOverview(period.from, period.to), getTrend(), getAlerts()]);
   const vsPrev = change(o.revenue.completed, o.revenue.completed_prev_period);
   const r = o.revenue;
+  const alerts: { text: string; href: string }[] = [];
+  if (al.leads_waiting) alerts.push({ text: `${al.leads_waiting} new ${al.leads_waiting === 1 ? "lead has" : "leads have"} no reply yet`, href: "/leads#list" });
+  if (al.follow_ups_due) alerts.push({ text: `${al.follow_ups_due} lead ${al.follow_ups_due === 1 ? "follow-up is" : "follow-ups are"} due`, href: "/leads#list" });
+  if (al.missed_not_returned) alerts.push({ text: `${al.missed_not_returned} missed ${al.missed_not_returned === 1 ? "call" : "calls"} from the last 3 days not returned`, href: "/leads" });
+  if (al.big_quotes_no_follow_up) alerts.push({ text: `${al.big_quotes_no_follow_up} quotes over $1,000 waiting 3+ days with no call or text`, href: "/sales#fu-h" });
+  if (al.plans_need_booking) alerts.push({ text: `${al.plans_need_booking} plan ${al.plans_need_booking === 1 ? "home needs" : "homes need"} the next visit booked`, href: "/plans#sheet" });
+  if (al.long_crew_days) alerts.push({ text: `${al.long_crew_days} crew ${al.long_crew_days === 1 ? "day" : "days"} this week ran over an hour past the schedule`, href: "/crews#over-h" });
+  if (al.next7_utilization != null && al.next7_utilization < 0.6) alerts.push({ text: `Only ${pct(al.next7_utilization)} of the next 7 days is booked`, href: "/financial#cap-h" });
+  if (al.callback_rate_30 != null && al.callback_rate_prior != null && al.callback_rate_30 > al.callback_rate_prior + 0.02)
+    alerts.push({ text: `Callbacks are up: ${pct(al.callback_rate_30)} of jobs in the last 30 days vs ${pct(al.callback_rate_prior)} before`, href: "/quality" });
+  if (al.approval_rate_30 != null && al.approval_rate_prior != null && al.approval_rate_30 < al.approval_rate_prior - 0.1)
+    alerts.push({ text: `Quote approvals dropped: ${pct(al.approval_rate_30)} in the last 30 days vs ${pct(al.approval_rate_prior)} before`, href: "/sales" });
   return (
     <Shell page="overview" session={session}>
           <main>
@@ -25,6 +37,13 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               </div>
               <Periods current={period.key} base="/overview" />
             </div>
+
+            {alerts.length > 0 && (
+              <section className="alerts" aria-labelledby="al-h">
+                <h2 id="al-h">Needs attention</h2>
+                <ul>{alerts.map((x) => <li key={x.text}><a href={x.href}>{x.text}</a></li>)}</ul>
+              </section>
+            )}
 
             <MoneyFlow stages={[
               { label: "Booked", value: r.booked, note: `${n(r.booked_jobs)} jobs scheduled or sold` },

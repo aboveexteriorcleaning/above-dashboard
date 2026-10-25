@@ -1,9 +1,9 @@
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
-import { getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards } from "@/lib/data";
+import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
 import { money, moneyExact, n, pct } from "@/lib/format";
-import { inviteMember, saveMember } from "./actions";
+import { inviteMember, saveMember, saveSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
   const session = await requireSession(["owner"]);
   const sp = await searchParams;
   const period = resolvePeriod(sp.p);
-  const [scores, team, comm, planSales] = await Promise.all([getTeamScorecards(period.from, period.to), getTeam(), getTeamCommission(period.from, period.to), getTeamPlanSales(period.from, period.to)]);
+  const [scores, team, comm, planSales, settings] = await Promise.all([getTeamScorecards(period.from, period.to), getTeam(), getTeamCommission(period.from, period.to), getTeamPlanSales(period.from, period.to), getSettings()]);
   const ranked = [...scores].sort((a, b) => b.revenue_credited - a.revenue_credited);
 
   return (
@@ -153,6 +153,16 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               )}
             </div>
           ))}
+        </section>
+
+        <section className="section" aria-labelledby="biz-h">
+          <div className="section-head"><h2 id="biz-h">Business settings</h2><span className="muted small">Used for capacity and revenue per truck</span></div>
+          <form action={saveSettings} className="member" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+            <div><label htmlFor="s-h">Crew hours per day</label><input id="s-h" name="crew_hours_per_day" inputMode="decimal" defaultValue={settings.crew_hours_per_day} /></div>
+            <div><label htmlFor="s-d">Work days per week</label><input id="s-d" name="work_days_per_week" inputMode="numeric" defaultValue={settings.work_days_per_week} /></div>
+            <div><label htmlFor="s-t">Trucks</label><input id="s-t" name="trucks" inputMode="numeric" defaultValue={settings.trucks} /></div>
+            <div><button className="btn" type="submit">Save settings</button></div>
+          </form>
         </section>
       </main>
     </Shell>
