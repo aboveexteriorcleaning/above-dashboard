@@ -154,7 +154,9 @@ export type PlanStatus = "on_schedule" | "booked_late" | "needs_date" | "not_boo
 export type PlanKpis = {
   revenue: number; visits: number; share_of_revenue: number | null; discounts: number; avg_visit: number | null;
   annual_value: number; booked_ahead: number; booked_ahead_visits: number; revenue_to_date: number;
-  homes: number; signups: number; status: Partial<Record<PlanStatus, number>>;
+  homes: number; signups: number;
+  conversion: { serviced: number; on_plan: number; rate: number | null; serviced_12m: number; on_plan_12m: number; rate_12m: number | null };
+  status: Partial<Record<PlanStatus, number>>;
   by_plan: { plan: string; per_year: number; homes: number; revenue: number }[];
   monthly: { month: string; completed_revenue: number; completed_jobs: number }[];
   ahead: { month: string; value: number; visits: number }[];

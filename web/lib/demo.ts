@@ -126,6 +126,7 @@ export function planKpis(): PlanKpis {
   return {
     revenue: 2650, visits: 7, share_of_revenue: 0.085, discounts: 375, avg_visit: 378, annual_value: 23100,
     booked_ahead: 23700, booked_ahead_visits: 64, revenue_to_date: 61400, homes: 31, signups: 4,
+    conversion: { serviced: 41, on_plan: 9, rate: 0.22, serviced_12m: 412, on_plan_12m: 31, rate_12m: 0.075 },
     status: { on_schedule: 22, booked_late: 2, not_booked: 6, needs_date: 1, overdue: 3, lapsed: 5 },
     by_plan: [
       { plan: "Biannual Window Cleaning Plan", per_year: 2, homes: 17, revenue: 1290 },

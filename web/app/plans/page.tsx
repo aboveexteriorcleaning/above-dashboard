@@ -45,6 +45,8 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
           <div className="stats">
             <Stat value={money(k.revenue)} label="Plan revenue"
               note={`${n(k.visits)} plan visits${k.share_of_revenue != null ? `, ${pct(k.share_of_revenue)} of completed revenue` : ""}`} />
+            <Stat value={pct(k.conversion.rate)} label="Plan conversion"
+              note={`${n(k.conversion.on_plan)} of ${n(k.conversion.serviced)} homes serviced are on a plan${k.conversion.rate_12m != null ? `; ${pct(k.conversion.rate_12m)} over the last 12 months` : ""}`} />
             <Stat value={money(k.avg_visit)} label="Average plan visit" />
             <Stat value={money(k.discounts)} label="Plan discounts given" note="Total of the plan line items" />
             <Stat value={n(k.signups)} label="New plan homes" note="First plan job created this period" />

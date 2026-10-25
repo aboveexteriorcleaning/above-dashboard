@@ -467,6 +467,10 @@ do $$ declare o jsonb; r record; begin
   assert jsonb_array_length(o->'monthly') = 12 and jsonb_array_length(o->'ahead') = 6, 'monthly + ahead lengths';
   assert (o->'status'->>'overdue')::int = 1, format('status counts %s', o->'status');
   raise notice 'ok  plans tab: revenue, booked ahead, annual value, and on-schedule flags';
+  -- October: serviced homes = C1 (J1, on a plan) and C2 (J2, no plan) -> 1 of 2
+  assert (o->'conversion'->>'serviced')::int = 2 and (o->'conversion'->>'on_plan')::int = 1
+     and (o->'conversion'->>'rate')::numeric = 0.5, format('conversion %s', o->'conversion');
+  raise notice 'ok  plans tab: plan conversion = serviced homes now on a plan';
 end $$;
 reset role;
 
