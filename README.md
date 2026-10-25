@@ -48,6 +48,18 @@ Setup: add the `QUO_API_KEY` secret in Supabase (Edge Functions → Secrets), de
 then run Actions → Sync → `quo-check`, then `quo-backfill`. After the import
 finishes, the scheduler pulls new calls and texts every 5 minutes.
 
+## Meta ads sync
+
+`supabase/functions/meta-sync` reads daily ad results (spend, impressions,
+clicks, Meta-reported leads) per ad. The system user token only has `ads_read`;
+`_shared/meta.ts` is a second lock: GET only, only to Meta's Graph API, and only
+to `act_<your account>` and `act_<your account>/insights`. A tripwire test fails
+the deploy if Meta is referenced anywhere else.
+
+Setup: add `META_ACCESS_TOKEN` and `META_AD_ACCOUNT_ID` (digits) as Supabase
+secrets, deploy, then run Actions → Sync → `meta-check`, then `meta-backfill`.
+After that it re-reads the last 3 days every hour and the last 28 days nightly.
+
 ## Running the access tests locally
 ```
 psql -d testdb -f supabase/tests/supabase_stub.sql

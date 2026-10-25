@@ -738,4 +738,29 @@ do $$ declare o jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Meta ads ----------
+insert into public.ad_spend_daily (day, campaign_id, campaign_name, ad_id, ad_name, spend, impressions, clicks, link_clicks, meta_leads) values
+ ('2026-10-05', 'CMP1', 'Roof cleaning', 'AD1', 'Roof A', 40.00, 5000, 120, 80, 3),
+ ('2026-10-06', 'CMP1', 'Roof cleaning', 'AD1', 'Roof A', 35.50, 4200, 100, 70, 2),
+ ('2026-10-06', 'CMP2', 'Christmas lights', 'AD2', 'Lights', 60.00, 9000, 210, 150, 4),
+ ('2026-09-30', 'CMP2', 'Christmas lights', 'AD2', 'Lights', 99.00, 9000, 210, 150, 9);  -- outside October
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_ads('2026-10-01','2026-10-31')$q$, 'crew cannot see ad numbers');
+do $$ begin
+  assert (select count(*) from public.ad_spend_daily) = 0, 'crew cannot read ad spend';
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; begin
+  o := public.owner_ads('2026-10-01','2026-10-31');
+  assert (o->>'spend')::numeric = 135.50 and (o->>'meta_leads')::int = 9 and (o->>'link_clicks')::int = 300, format('ads totals %s', o);
+  assert jsonb_array_length(o->'campaigns') = 2 and (o->'campaigns'->0->>'name') = 'Roof cleaning', format('campaigns %s', o->'campaigns');
+  assert (o->>'new_customers')::int = (public.owner_leads('2026-10-01','2026-10-31')->>'new_booked')::int, 'same new-customer count as the Leads tab';
+  assert jsonb_array_length(o->'monthly') = 12, 'monthly';
+  raise notice 'ok  meta: ad spend, leads and campaigns for owners only';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

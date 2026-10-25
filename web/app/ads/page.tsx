@@ -1,0 +1,110 @@
+import { Shell, requireSession } from "@/components/Shell";
+import { Periods } from "@/components/Periods";
+import { Stat } from "@/components/charts";
+import { getAds, getMetaFreshness } from "@/lib/data";
+import { resolvePeriod } from "@/lib/periods";
+import { money, moneyExact, n, pct, shortDate, timeAgo } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+const per = (a: number, b: number) => (a && b ? a / b : null);
+
+export default async function Ads({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+  const session = await requireSession(["owner"]);
+  const period = resolvePeriod((await searchParams).p);
+  const fresh = await getMetaFreshness();
+
+  if (!fresh.connected) {
+    return (
+      <Shell page="ads" session={session}>
+        <main>
+          <div className="pagehead"><h1>Ads</h1></div>
+          <div className="panel" style={{ maxWidth: "70ch" }}>
+            <h2>Meta isn&rsquo;t connected yet</h2>
+            <p className="muted">Once the Meta token is added and the history import has run, this page shows ad spend, cost per lead and cost per new customer.</p>
+          </div>
+        </main>
+      </Shell>
+    );
+  }
+
+  const a = await getAds(period.from, period.to);
+  const maxSpend = Math.max(...a.monthly.map((m) => m.spend), 1);
+
+  return (
+    <Shell page="ads" session={session}>
+      <main>
+        <div className="pagehead">
+          <div>
+            <h1>Ads</h1>
+            <p className="muted" style={{ margin: "6px 0 0" }}>
+              {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+              <span className="small"> · Meta updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
+            </p>
+          </div>
+          <Periods current={period.key} base="/ads" />
+        </div>
+
+        <section aria-labelledby="meta-h">
+          <div className="section-head"><h2 id="meta-h">On Meta</h2><span className="muted small">As Meta reports it</span></div>
+          <div className="stats">
+            <Stat value={money(a.spend)} label="Ad spend" note={`${n(a.days_with_spend)} days with spend`} />
+            <Stat value={n(a.meta_leads)} label="Leads" note={`${moneyExact(per(a.spend, a.meta_leads))} per lead`} />
+            <Stat value={n(a.link_clicks)} label="Link clicks" note={`${moneyExact(per(a.spend, a.link_clicks))} per click; ${pct(per(a.link_clicks, a.impressions))} of impressions`} />
+            <Stat value={n(a.impressions)} label="Impressions" note={`${moneyExact(per(a.spend * 1000, a.impressions))} per 1,000`} />
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="blend-h">
+          <div className="section-head"><h2 id="blend-h">Spend vs results</h2><span className="muted small">Blended: all new customers, not only those from ads</span></div>
+          <div className="stats">
+            <Stat value={n(a.form_leads)} label="Form leads in Quo" note={`${moneyExact(per(a.spend, a.form_leads))} of ad spend per form lead`} />
+            <Stat value={n(a.new_customers)} label="New customers booked" note={`${money(per(a.spend, a.new_customers))} of ad spend per new customer`} />
+            <Stat value={money(a.new_customer_value)} label="New customer work booked"
+              note={a.spend ? `$${(a.new_customer_value / a.spend).toFixed(2)} booked per $1 of ad spend` : undefined} />
+          </div>
+          <p className="muted small" style={{ maxWidth: "75ch" }}>
+            New customers come from Jobber (first-ever job at the address, any channel), so these include referrals and calls that didn&rsquo;t come from an ad.
+            Use them to compare months; tying each booking to a specific ad comes once Meta lead forms are linked to Jobber.
+          </p>
+        </section>
+
+        <section className="section" aria-labelledby="camp-h">
+          <div className="section-head"><h2 id="camp-h">Campaigns</h2><span className="muted small">{period.label}</span></div>
+          {a.campaigns.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table className="rows" style={{ minWidth: 640 }}>
+                <thead><tr><th>Campaign</th><th className="num">Spend</th><th className="num">Leads</th><th className="num">Per lead</th><th className="num">Link clicks</th><th className="num">Per click</th></tr></thead>
+                <tbody>{a.campaigns.map((c) => (
+                  <tr key={c.campaign_id}>
+                    <td><strong>{c.name ?? "Unnamed campaign"}</strong><div className="small muted">{shortDate(c.first_day + "T12:00:00Z")} to {shortDate(c.last_day + "T12:00:00Z")}</div></td>
+                    <td className="num">{money(c.spend)}</td><td className="num">{n(c.leads)}</td><td className="num">{moneyExact(per(c.spend, c.leads))}</td>
+                    <td className="num">{n(c.link_clicks)}</td><td className="num">{moneyExact(per(c.spend, c.link_clicks))}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : <p className="muted">No ad spend in this period.</p>}
+        </section>
+
+        <section className="section" aria-labelledby="month-h">
+          <div className="section-head"><h2 id="month-h">By month</h2><span className="muted small">Last 12 months</span></div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="rows" style={{ minWidth: 640 }}>
+              <thead><tr><th>Month</th><th className="num">Spend</th><th className="num">Meta leads</th><th className="num">Per lead</th><th className="num">New customers</th><th className="num">Per new customer</th><th className="barcell hide-sm" aria-hidden /></tr></thead>
+              <tbody>{a.monthly.map((m) => (
+                <tr key={m.month}>
+                  <td>{mon(m.month)}</td><td className="num">{money(m.spend)}</td><td className="num">{n(m.leads)}</td>
+                  <td className="num">{moneyExact(per(m.spend, m.leads))}</td><td className="num">{n(m.new_customers)}</td>
+                  <td className="num">{money(per(m.spend, m.new_customers))}</td>
+                  <td className="barcell hide-sm" aria-hidden><div className="track"><div className="bar" style={{ width: `${(m.spend / maxSpend) * 100}%` }} /></div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </Shell>
+  );
+}

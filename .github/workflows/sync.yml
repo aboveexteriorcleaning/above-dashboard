@@ -1,4 +1,4 @@
-# Manually run the Jobber or Quo sync. GitHub → Actions → Sync → Run workflow.
+# Manually run the Jobber, Quo or Meta sync. GitHub → Actions → Sync → Run workflow.
 # Output is counts and field names only, never customer data.
 name: Sync
 
@@ -20,6 +20,9 @@ on:
           - quo-backfill     # import the last 2 years of Quo calls and texts (read-only); turns on the 5-minute Quo sync
           - quo-status       # Quo sync time and record counts (no customer details)
           - quo-incremental  # pull new Quo calls and texts now
+          - meta-check       # confirm the Meta token and ad account; reads, saves nothing
+          - meta-backfill    # import ad results for the last ~2 years (read-only); turns on the hourly Meta sync
+          - meta-status      # Meta sync time, date range and totals
 
 permissions:
   contents: read
@@ -35,6 +38,7 @@ jobs:
     env:
       BASE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/jobber-sync
       QUO: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/quo-sync
+      META: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/meta-sync
       SYNC_KEY: ${{ secrets.SYNC_KEY }}
     steps:
       - name: Run
@@ -42,7 +46,7 @@ jobs:
           set -euo pipefail
           call() {
             echo "::group::$1"
-            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; esac
+            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; meta:*) url="$META?${1#meta:}" ;; esac
             code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$url" --max-time 400)
             cat out.json; echo; echo "::endgroup::"
             if [ "$code" != "200" ] || grep -q '"ok": false' out.json; then
@@ -79,6 +83,14 @@ jobs:
             quo-check)       call "quo:mode=check" ;;
             quo-status)      call "quo:mode=status" ;;
             quo-incremental) call "quo:mode=incremental&force=1" ;;
+            meta-check)      call "meta:mode=check" ;;
+            meta-status)     call "meta:mode=status" ;;
+            meta-backfill)
+              for i in $(seq 1 30); do
+                call "meta:mode=backfill"
+                grep -q '"done": true' out.json && break
+                if [ "$i" = 30 ]; then echo "::error::Meta import did not finish in 30 rounds"; exit 1; fi
+              done ;;
             quo-backfill)
               for i in $(seq 1 60); do
                 call "quo:mode=backfill"

@@ -237,3 +237,20 @@ export async function getQuoFreshness(): Promise<QuoFreshness> {
   const rows = await rpc<any[]>("quo_freshness");
   return rows?.[0] ?? { last_synced: null, healthy: true, connected: false };
 }
+
+// ---------- ads (Meta, owners) ----------
+export type AdsKpis = {
+  spend: number; impressions: number; link_clicks: number; clicks: number; meta_leads: number; days_with_spend: number;
+  form_leads: number; new_customers: number; new_customer_value: number;
+  campaigns: { campaign_id: string; name: string | null; spend: number; impressions: number; link_clicks: number; leads: number; first_day: string; last_day: string }[];
+  monthly: { month: string; spend: number; leads: number; new_customers: number; new_value: number }[];
+};
+export async function getAds(from: string, to: string): Promise<AdsKpis> {
+  if (isDemo()) return demo.ads();
+  return await rpc<AdsKpis>("owner_ads", { p_from: from, p_to: to });
+}
+export async function getMetaFreshness(): Promise<QuoFreshness> {
+  if (isDemo()) return { last_synced: new Date(Date.now() - 20 * 60_000).toISOString(), healthy: true, connected: true };
+  const rows = await rpc<any[]>("meta_freshness");
+  return rows?.[0] ?? { last_synced: null, healthy: true, connected: false };
+}

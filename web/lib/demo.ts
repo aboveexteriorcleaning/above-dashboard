@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -214,4 +214,22 @@ export function leadList(): Lead[] {
     booked_value: v, in_hours: true, clock_from: source.startsWith("Form") && mins != null ? "their reply" : "first contact", waiting_on_them: i === 1,
     follow_up: i === 1 ? "First follow-up due" : i === 2 ? "Followed up once" : null, fu1_at: null, fu2_at: null, hours_to_quote: q ? 5 : null,
   }));
+}
+
+export function ads(): AdsKpis {
+  const spend = [310, 280, 0, 0, 420, 650, 820, 760, 540, 480, 610, 920];
+  const monthly = spend.map((v, i) => {
+    const d = new Date(Date.UTC(2025, 10 + i, 1));
+    return { month: d.toISOString().slice(0, 10), spend: v, leads: Math.round(v / 24), new_customers: Math.round(v / 70) + 4, new_value: Math.round(v * 3.4) + 2400 };
+  });
+  return {
+    spend: 920, impressions: 61240, link_clicks: 1184, clicks: 1610, meta_leads: 38, days_with_spend: 24,
+    form_leads: 33, new_customers: 22, new_customer_value: 17350,
+    campaigns: [
+      { campaign_id: "1", name: "Christmas lights 2026", spend: 540, impressions: 38200, link_clicks: 702, leads: 24, first_day: "2026-10-01", last_day: "2026-10-24" },
+      { campaign_id: "2", name: "Roof softwash", spend: 310, impressions: 19800, link_clicks: 401, leads: 12, first_day: "2026-10-01", last_day: "2026-10-24" },
+      { campaign_id: "3", name: "Window cleaning", spend: 70, impressions: 3240, link_clicks: 81, leads: 2, first_day: "2026-10-12", last_day: "2026-10-18" },
+    ],
+    monthly,
+  };
 }
