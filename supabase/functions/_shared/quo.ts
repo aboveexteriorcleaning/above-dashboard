@@ -17,6 +17,14 @@ export function assertQuoReadOnly(method: string, path: string): void {
   }
 }
 
+/** Final check on the exact request about to leave: Quo's host, an allowed list path, GET, no body. */
+export function assertQuoRequest(url: URL, init: RequestInit): void {
+  if (url.origin !== BASE) throw new QuoReadOnlyViolation(`Blocked: ${url.origin} is not Quo's API.`);
+  assertQuoReadOnly(String(init.method ?? ""), url.pathname);
+  if (init.body != null) throw new QuoReadOnlyViolation("Blocked: Quo requests may not carry a body.");
+  if (init.redirect !== "error") throw new QuoReadOnlyViolation("Blocked: Quo requests must refuse redirects.");
+}
+
 export class QuoError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -31,10 +39,13 @@ export async function quoGet(path: QuoPath, params: Params = {}, fetcher: typeof
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
   for (let attempt = 0; ; attempt++) {
-    const res = await fetcher(url, {
+    const init: RequestInit = {
       method: "GET",
+      redirect: "error",   // never follow Quo somewhere else with the key attached
       headers: { Authorization: key, "Quo-Api-Version": VERSION, Accept: "application/json" },
-    });
+    };
+    assertQuoRequest(url, init);
+    const res = await fetcher(url, init);
     if (res.ok) return await res.json();
     const retryable = res.status === 429 || res.status >= 500;
     if (retryable && attempt < 5) {

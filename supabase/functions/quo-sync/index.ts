@@ -14,15 +14,27 @@ const json = (body: unknown, status = 200) =>
 
 const BUDGET_MS = 100_000;
 
+/** Constant-time comparison; an unset key never matches. */
+function syncKeyOk(given: string | null, expected: string | undefined): boolean {
+  if (!expected || !given) return false;
+  const a = new TextEncoder().encode(given), b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
-  if (req.headers.get("x-sync-key") !== Deno.env.get("SYNC_KEY")) return json({ error: "forbidden" }, 403);
+  if (!syncKeyOk(req.headers.get("x-sync-key"), Deno.env.get("SYNC_KEY"))) return json({ error: "forbidden" }, 403);
   const params = new URL(req.url).searchParams;
   const mode = params.get("mode") ?? "incremental";
   try {
     if (!Deno.env.get("QUO_API_KEY")) return json({ ok: true, skipped: "QUO_API_KEY not set yet" });
     if (mode === "check") return json(await check());
     if (mode === "status") return json(await status());
-    if (mode === "backfill") return json(await backfill(Number(params.get("days") ?? 730), params.get("restart") === "1"));
+    if (mode === "backfill") {
+      const days = Math.min(Math.max(Math.trunc(Number(params.get("days") ?? 730)) || 730, 1), 1095);
+      return json(await backfill(days, params.get("restart") === "1"));
+    }
     return json(await incremental(params.get("force") === "1"));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
