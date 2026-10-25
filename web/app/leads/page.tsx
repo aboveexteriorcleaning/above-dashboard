@@ -61,11 +61,27 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <div className="stats">
             <Stat value={n(k.leads)} label="New leads" note={k.by_source.slice(0, 3).map((s) => `${s.leads} ${s.source.toLowerCase()}`).join(", ") || undefined} />
             <Stat value={minutes(k.median_response_min)} label="Speed to lead"
-              note={`Median first reply${k.within_5_min != null ? `; ${pct(k.within_5_min)} within 5 min` : ""}${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads between 7am and 7pm` : ""}`} />
+              note={`Median first reply${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads between 7am and 7pm` : ""}`} />
             <Stat value={n(k.new_quoted)} label="Got a quote"
               note={`New customers' first quote${k.new_quoted ? `; ${pct(k.new_quoted_booked / k.new_quoted)} have booked since` : ""}`} />
             <Stat value={n(k.new_booked)} label="Booked" note={`New customers' first job, ${money(k.new_booked_value)} of work`} />
           </div>
+        </section>
+
+        <section className="section" aria-labelledby="speed-h">
+          <div className="section-head"><h2 id="speed-h">Does speed pay off?</h2><span className="muted small">Booked = matched to a Jobber job by phone</span></div>
+          <div className="stats">
+            <Stat value={pct(k.within_5_min)} label="Answered within 5 min"
+              note={`${n(k.speed_booking.fast_leads)} of ${n(k.leads)} leads`} />
+            <Stat value={pct(k.speed_booking.fast_leads ? k.speed_booking.fast_booked / k.speed_booking.fast_leads : null)} label="Booked, answered within 5 min"
+              note={`${n(k.speed_booking.fast_booked)} of ${n(k.speed_booking.fast_leads)} leads`} />
+            <Stat value={pct(k.speed_booking.slow_leads ? k.speed_booking.slow_booked / k.speed_booking.slow_leads : null)} label="Booked, answered after 5 min"
+              note={`${n(k.speed_booking.slow_booked)} of ${n(k.speed_booking.slow_leads)} leads`} />
+          </div>
+          <p className="muted small" style={{ maxWidth: "75ch" }}>
+            {n(k.speed_booking.matched_leads)} of this period&rsquo;s {n(k.leads)} leads have a phone number that matches a Jobber client, so these booking rates firm up as more profiles carry phone numbers.
+            For form leads, reply time runs from their reply to the auto-text to your first reply.
+          </p>
         </section>
 
         <section className="section" aria-labelledby="missed-h">

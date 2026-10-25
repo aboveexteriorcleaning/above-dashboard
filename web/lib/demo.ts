@@ -179,6 +179,7 @@ export function leadKpis(): LeadKpis {
   return {
     leads: 27, responded: 25, no_reply: 2, median_response_min: 6.5, median_response_min_in_hours: 3, within_5_min: 0.44,
     quoted: 17, booked: 9, booked_value: 8640,
+    speed_booking: { fast_leads: 12, fast_booked: 6, slow_leads: 13, slow_booked: 3, matched_leads: 18 },
     new_quoted: 41, new_quoted_booked: 19, new_quoted_no_phone: 12, new_booked: 22, new_booked_value: 17350,
     by_source: [
       { source: "Called in", leads: 12, booked: 5, booked_value: 4890 },
@@ -207,6 +208,6 @@ export function leadList(): Lead[] {
   return rows.map(([name, at, source, mins, who, q, b, v], i) => ({
     contact_phone: `+1360555010${i}`, client_name: name, client_id: null, lead_at: at, source, line_name: "Main line",
     first_response_at: mins == null ? null : at, response_minutes: mins, responded_by: who, quoted_at: q, booked_at: b,
-    booked_value: v, in_hours: true,
+    booked_value: v, in_hours: true, clock_from: source.startsWith("Form") && mins != null ? "their reply" : "first contact",
   }));
 }

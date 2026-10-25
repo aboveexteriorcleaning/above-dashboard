@@ -627,7 +627,14 @@ do $$ declare o jsonb; p jsonb; begin
   o := public.owner_leads('2026-12-01','2026-12-31');
   assert (o->>'leads')::int = 5, format('leads %s', o->>'leads');        -- A, B, C, D, E (not the existing customer, not the hang-up)
   assert (o->>'no_reply')::int = 1 and (o->>'responded')::int = 4, format('replies %s', o);
-  assert (o->>'median_response_min')::numeric = 11.5, format('median %s', o->>'median_response_min');  -- 0, 3, 20, 30
+  assert (o->>'median_response_min')::numeric = 11.5, format('median %s', o->>'median_response_min');  -- 0, 3, 20, 20
+  -- B got the auto-text at 18:00, replied 18:10, we answered 18:30: 20 min from their reply, not 30
+  assert (select response_minutes from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551002') = 20
+     and (select clock_from from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551002') = 'their reply', 'form lead clock starts at their reply';
+  -- D: we called at 18:03 before they replied: 3 min from the auto-text
+  assert (select response_minutes from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551004') = 3, 'we reached out first';
+  assert (o->'speed_booking'->>'fast_leads')::int = 2 and (o->'speed_booking'->>'fast_booked')::int = 1
+     and (o->'speed_booking'->>'slow_leads')::int = 2 and (o->'speed_booking'->>'slow_booked')::int = 0, format('speed booking %s', o->'speed_booking');
   assert (o->>'within_5_min')::numeric = 0.4, format('within 5 %s', o->>'within_5_min');
   assert (o->>'quoted')::int = 1 and (o->>'booked')::int = 1 and (o->>'booked_value')::numeric = 500, format('funnel %s', o);
   -- Jobber-side: CA (first quote Dec 2, first job Dec 5) is a new customer quoted and booked in December

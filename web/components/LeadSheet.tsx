@@ -40,9 +40,9 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   }, [rows, filter, q]);
 
   function downloadCsv() {
-    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Replied by", "Quoted", "Booked", "Booked value"];
+    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Clock started at", "Replied by", "Quoted", "Booked", "Booked value"];
     const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const lines = shown.map((r) => [r.client_name, r.contact_phone, r.lead_at, r.source, r.line_name, r.response_minutes, r.responded_by,
+    const lines = shown.map((r) => [r.client_name, r.contact_phone, r.lead_at, r.source, r.line_name, r.response_minutes, r.clock_from, r.responded_by,
       r.quoted_at?.slice(0, 10), r.booked_at?.slice(0, 10), r.booked_value].map(esc).join(","));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" }));
@@ -89,7 +89,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
                   <td className="date">{when(r.lead_at)}{!r.in_hours && <div className="small muted">After hours (7pm–7am)</div>}</td>
                   <td>{r.source}{r.line_name && <div className="small muted">{r.line_name}</div>}</td>
                   <td><span className={`status ${tone}`}>{label}</span></td>
-                  <td className="date">{mins(r.response_minutes)}{r.responded_by && <div className="small muted">{r.responded_by}</div>}</td>
+                  <td className="date">{mins(r.response_minutes)}{r.responded_by && <div className="small muted">{r.responded_by}{r.clock_from === "their reply" ? ", after their reply" : ""}</div>}</td>
                   <td className="date">{day(r.quoted_at)}</td>
                   <td className="num">{r.booked_at ? usd.format(r.booked_value) : <span className="muted">—</span>}</td>
                 </tr>
@@ -101,7 +101,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
       </div>
       <p className="muted small" style={{ maxWidth: "75ch" }}>
         A lead is a phone number you&rsquo;d never dealt with, that wasn&rsquo;t already a customer, and that texted in, called (20 seconds or more, or left a voicemail),
-        or got the automatic form-lead text. First reply is the first time a person called or texted back, or picked up their call; the automatic text doesn&rsquo;t count.
+        or got the automatic form-lead text. First reply is the first time a person called or texted back, or picked up their call; the automatic text doesn&rsquo;t count, and for form leads the clock starts when they reply to it.
         In this list, quoted and booked come from Jobber by matching the lead&rsquo;s phone number (within 60 and 90 days), so leads with no phone on their Jobber profile show as not quoted.
       </p>
     </div>
