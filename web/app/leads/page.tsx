@@ -72,7 +72,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <div className="section-head"><h2 id="speed-h">Does speed pay off?</h2><span className="muted small">Booked = matched to a Jobber job by phone</span></div>
           <div className="stats">
             <Stat value={pct(k.within_5_min)} label="Answered within 5 min"
-              note={`${n(k.speed_booking.fast_leads)} of ${n(k.leads)} leads`} />
+              note={`${n(k.speed_booking.fast_leads)} of ${n(k.timed_leads)} leads${k.waiting_on_them ? `; ${n(k.waiting_on_them)} form ${k.waiting_on_them === 1 ? "lead never" : "leads never"} replied to the auto-text, so ${k.waiting_on_them === 1 ? "isn't" : "aren't"} timed` : ""}`} />
             <Stat value={pct(k.speed_booking.fast_leads ? k.speed_booking.fast_booked / k.speed_booking.fast_leads : null)} label="Booked, answered within 5 min"
               note={`${n(k.speed_booking.fast_booked)} of ${n(k.speed_booking.fast_leads)} leads`} />
             <Stat value={pct(k.speed_booking.slow_leads ? k.speed_booking.slow_booked / k.speed_booking.slow_leads : null)} label="Booked, answered after 5 min"
@@ -80,7 +80,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>
             {n(k.speed_booking.matched_leads)} of this period&rsquo;s {n(k.leads)} leads have a phone number that matches a Jobber client, so these booking rates firm up as more profiles carry phone numbers.
-            For form leads, reply time runs from their reply to the auto-text to your first reply.
+            Form leads are timed from the auto-text if you reached them within 24 hours, otherwise from their reply to your next reply. Follow-ups after 24 hours of silence don&rsquo;t count.
           </p>
         </section>
 

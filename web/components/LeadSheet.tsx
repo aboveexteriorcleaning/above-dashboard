@@ -15,14 +15,14 @@ function mins(m: number | null) {
   if (m < 2880) return `${Math.round(m / 6) / 10} hr`;
   return `${Math.round(m / 144) / 10} days`;
 }
-const stage = (l: Lead) => l.booked_at ? "booked" : l.quoted_at ? "quoted" : l.first_response_at ? "replied" : "no_reply";
+const stage = (l: Lead) => l.booked_at ? "booked" : l.quoted_at ? "quoted" : l.first_response_at ? "replied" : l.waiting_on_them ? "waiting_them" : "no_reply";
 
 export function LeadSheet({ rows }: { rows: Lead[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const counts = useMemo(() => ({
     all: rows.length,
-    no_reply: rows.filter((r) => !r.first_response_at).length,
+    no_reply: rows.filter((r) => !r.first_response_at && !r.waiting_on_them).length,
     not_quoted: rows.filter((r) => !r.quoted_at && !r.booked_at).length,
     quoted: rows.filter((r) => r.quoted_at && !r.booked_at).length,
     booked: rows.filter((r) => r.booked_at).length,
@@ -30,7 +30,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase(), digits = n.replace(/\D/g, "");
     return rows.filter((r) => {
-      const okFilter = filter === "all" || (filter === "no_reply" ? !r.first_response_at
+      const okFilter = filter === "all" || (filter === "no_reply" ? !r.first_response_at && !r.waiting_on_them
         : filter === "not_quoted" ? !r.quoted_at && !r.booked_at
         : filter === "quoted" ? !!r.quoted_at && !r.booked_at : !!r.booked_at);
       const okSearch = !n || r.client_name?.toLowerCase().includes(n) || r.source.toLowerCase().includes(n)
@@ -54,7 +54,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
     { key: "all", label: "All" }, { key: "no_reply", label: "No reply yet" }, { key: "not_quoted", label: "Not quoted" },
     { key: "quoted", label: "Quoted" }, { key: "booked", label: "Booked" },
   ];
-  const tag = { booked: ["good", "Booked"], quoted: ["warn", "Quoted"], replied: ["off", "Replied"], no_reply: ["bad", "No reply yet"] } as const;
+  const tag = { booked: ["good", "Booked"], quoted: ["warn", "Quoted"], replied: ["off", "Replied"], waiting_them: ["off", "Waiting on them"], no_reply: ["bad", "No reply yet"] } as const;
 
   return (
     <div>
@@ -101,7 +101,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
       </div>
       <p className="muted small" style={{ maxWidth: "75ch" }}>
         A lead is a phone number you&rsquo;d never dealt with, that wasn&rsquo;t already a customer, and that texted in, called (20 seconds or more, or left a voicemail),
-        or got the automatic form-lead text. First reply is the first time a person called or texted back, or picked up their call; the automatic text doesn&rsquo;t count, and for form leads the clock starts when they reply to it.
+        or got the automatic form-lead text. First reply is the first time a person called or texted back, or picked up their call; the automatic text doesn&rsquo;t count, and form leads are timed from the auto-text if you reached them within 24 hours, otherwise from their reply. &ldquo;Waiting on them&rdquo; means they never answered the auto-text.
         In this list, quoted and booked come from Jobber by matching the lead&rsquo;s phone number (within 60 and 90 days), so leads with no phone on their Jobber profile show as not quoted.
       </p>
     </div>

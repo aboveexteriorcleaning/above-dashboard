@@ -626,7 +626,8 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ declare o jsonb; p jsonb; begin
   o := public.owner_leads('2026-12-01','2026-12-31');
   assert (o->>'leads')::int = 5, format('leads %s', o->>'leads');        -- A, B, C, D, E (not the existing customer, not the hang-up)
-  assert (o->>'no_reply')::int = 1 and (o->>'responded')::int = 4, format('replies %s', o);
+  -- C got the auto-text and never answered: waiting on them, not on us
+  assert (o->>'no_reply')::int = 0 and (o->>'responded')::int = 4 and (o->>'waiting_on_them')::int = 1, format('replies %s', o);
   assert (o->>'median_response_min')::numeric = 11.5, format('median %s', o->>'median_response_min');  -- 0, 3, 20, 20
   -- B got the auto-text at 18:00, replied 18:10, we answered 18:30: 20 min from their reply, not 30
   assert (select response_minutes from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551002') = 20
@@ -635,7 +636,7 @@ do $$ declare o jsonb; p jsonb; begin
   assert (select response_minutes from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551004') = 3, 'we reached out first';
   assert (o->'speed_booking'->>'fast_leads')::int = 2 and (o->'speed_booking'->>'fast_booked')::int = 1
      and (o->'speed_booking'->>'slow_leads')::int = 2 and (o->'speed_booking'->>'slow_booked')::int = 0, format('speed booking %s', o->'speed_booking');
-  assert (o->>'within_5_min')::numeric = 0.4, format('within 5 %s', o->>'within_5_min');
+  assert (o->>'within_5_min')::numeric = 0.5, format('within 5 %s', o->>'within_5_min');   -- A and D, of the 4 we could answer
   assert (o->>'quoted')::int = 1 and (o->>'booked')::int = 1 and (o->>'booked_value')::numeric = 500, format('funnel %s', o);
   -- Jobber-side: CA (first quote Dec 2, first job Dec 5) is a new customer quoted and booked in December
   assert (o->>'new_quoted')::int = 1 and (o->>'new_booked')::int = 1 and (o->>'new_booked_value')::numeric = 500
@@ -661,6 +662,26 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ begin
   assert not (select in_hours from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551008'), '9:30pm is after hours';
   raise notice 'ok  quo: business hours are 7am-7pm every day';
+end $$;
+reset role;
+
+-- Form leads who went quiet: a follow-up after 24h isn't a reply.
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, quo_user_id, phone_number_id, text_head_hash, text_tail_hash) values
+ ('fJ1', 'message', 'outbound', '+13605551011', '2026-12-08 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),  -- auto-text
+ ('fJ2', 'message', 'outbound', '+13605551011', '2026-12-10 17:00Z', null, null, 'USK', 'PN1', 'f1', 'f2'),  -- our follow-up, 47h later
+ ('fJ3', 'message', 'inbound',  '+13605551011', '2026-12-10 19:00Z', null, null, null,  'PN1', null, null),  -- they finally reply
+ ('fJ4', 'message', 'outbound', '+13605551011', '2026-12-10 19:15Z', null, null, 'USK', 'PN1', 'g1', 'g2'),  -- we answer 15 min later
+ ('fK1', 'message', 'outbound', '+13605551012', '2026-12-08 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),  -- auto-text
+ ('fK2', 'message', 'outbound', '+13605551012', '2026-12-10 17:00Z', null, null, 'USK', 'PN1', 'f1', 'f2');  -- follow-up, never answered
+select app.refresh_quo();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare r record; begin
+  select * into r from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551011';
+  assert r.response_minutes = 15 and r.clock_from = 'their reply' and not r.waiting_on_them, format('late reply %s', r);
+  select * into r from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551012';
+  assert r.waiting_on_them and r.response_minutes is null and r.first_response_at is null, format('never replied %s', r);
+  raise notice 'ok  quo: follow-ups after 24h of silence do not count as a reply';
 end $$;
 reset role;
 
