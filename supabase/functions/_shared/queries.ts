@@ -66,6 +66,15 @@ export const QUERIES = {
   timesheetsAll: `query TimesheetsAll($first: Int, $after: String) {
     timeSheetEntries(first: $first, after: $after) { nodes { ${TIMESHEET} } ${PAGE} } }`,
 
+  // Job custom fields (the "Upsell offer" dropdown). Read separately so that if
+  // the field names ever differ, only this step is skipped, never the main sync.
+  jobFieldsCompleted: `query JobFields($first: Int, $after: String, $since: ISO8601DateTime) {
+    jobs(first: $first, after: $after, filter: { completedAt: { after: $since } }) {
+      nodes { id customFields { __typename ... on CustomFieldDropdown { label valueDropdown } } } ${PAGE} } }`,
+  jobFieldsAll: `query JobFieldsAll($first: Int, $after: String) {
+    jobs(first: $first, after: $after) {
+      nodes { id customFields { __typename ... on CustomFieldDropdown { label valueDropdown } } } ${PAGE} } }`,
+
   // Single records, used by the webhook receiver.
   client:  `query C($id: EncodedId!) { client(id: $id)  { ${CLIENT} } }`,
   request: `query R($id: EncodedId!) { request(id: $id) { ${REQUEST} } }`,
@@ -83,6 +92,7 @@ export type QueryName = keyof typeof QUERIES;
 export const PAGE_SIZE: Partial<Record<QueryName, number>> = {
   users: 50, clients: 50, requests: 50, quotes: 15, invoices: 25, timesheets: 50,
   jobsCreated: 10, jobsCompleted: 10, jobsScheduled: 10,
+  jobFieldsCompleted: 50, jobFieldsAll: 50,
   clientsAll: 50, requestsAll: 50, quotesAll: 15, jobsAll: 10, invoicesAll: 25, timesheetsAll: 50,
 };
 
@@ -103,6 +113,12 @@ export const MANIFEST: Record<string, string[]> = {
             "client", "jobs", "amounts"],
   TimeSheetEntry: ["id", "startAt", "endAt", "finalDuration", "user", "job"],
   User: ["id", "name"],
+};
+
+// Optional: checked and reported, but a mismatch only disables the custom-field step.
+export const MANIFEST_OPTIONAL: Record<string, string[]> = {
+  Job: ["customFields"],
+  CustomFieldDropdown: ["label", "valueDropdown"],
 };
 
 // Root fields whose `filter` must accept these keys.

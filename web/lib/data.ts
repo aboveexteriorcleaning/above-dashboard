@@ -297,3 +297,37 @@ export async function getQuality(from: string, to: string): Promise<QualityKpis>
   if (isDemo()) return demo.quality();
   return await rpc<QualityKpis>("owner_quality", { p_from: from, p_to: to });
 }
+
+// ---------- revenue: upsells, customers, plan extras (owners) ----------
+export type UpsellKpis = {
+  completed_jobs: number; upsold_jobs: number; revenue: number; on_site: number; quote_add_on: number; job_revenue: number;
+  offers: { recorded: number; offered: number; accepted: number; declined: number; not_a_fit: number };
+  by_service: { service: string; times: number; revenue: number }[];
+  combos: { base: string; add_on: string; jobs: number; revenue: number }[];
+  by_person: { name: string; jobs: number; upsold_jobs: number; revenue: number; hours: number }[];
+};
+export type CustomerKpis = {
+  customers: number; revenue: number; jobs: number; new_customers: number; new_revenue: number; returning_revenue: number;
+  first_job_avg: number | null; reactivated: number; reactivated_revenue: number;
+  lifetime_avg: number | null; lifetime_avg_2yr: number | null; all_customers: number;
+  repeat_rate: number | null; repeat_base: number; second_job_rate: number | null; second_job_base: number;
+  retention: number | null; retention_base: number; days_between: number | null; jobs_per_customer_12m: number | null;
+  cross_service: number | null;
+  top_customers: { home_key: string; jobs: number; lifetime: number; first_at: string; last_at: string; name: string | null }[];
+};
+export type PlanExtras = {
+  mrr: number; avg_plan_value: number | null; renewal_rate: number | null; renewal_base: number; cancellation_rate: number | null;
+  plan_upsell_revenue: number; plan_lifetime_avg: number | null; non_plan_lifetime_avg: number | null;
+};
+export async function getUpsells(from: string, to: string): Promise<UpsellKpis> {
+  if (isDemo()) return demo.upsells();
+  return await rpc<UpsellKpis>("owner_upsells", { p_from: from, p_to: to });
+}
+export async function getCustomers(from: string, to: string): Promise<CustomerKpis> {
+  if (isDemo()) return demo.customers();
+  return await rpc<CustomerKpis>("owner_customers", { p_from: from, p_to: to });
+}
+export async function getPlanExtras(from: string, to: string): Promise<PlanExtras> {
+  if (isDemo()) return demo.planExtras();
+  return await rpc<PlanExtras>("owner_plan_extras", { p_from: from, p_to: to });
+}

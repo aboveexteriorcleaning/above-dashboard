@@ -1,7 +1,7 @@
 // Saves Jobber records into our tables. Shared by the scheduled sync and
 // the webhook receiver. Writes ONLY to our own database.
 import { db, ensurePlaceholders, saveRaw, upsert } from "./db.ts";
-import { mapClient, mapInvoice, mapJob, mapQuote, mapRequest, mapTimesheet } from "./mapping.ts";
+import { mapClient, mapInvoice, mapJob, mapQuote, mapRequest, mapTimesheet, upsellOfferFrom } from "./mapping.ts";
 
 type Via = "webhook" | "poll" | "backfill";
 
@@ -54,6 +54,16 @@ export async function saveQuotes(nodes: any[], via: Via) {
   await upsert("public.quotes", mapped.map((m) => m.quote));
   await replaceChildren("public.quote_line_items", "quote_id",
     mapped.filter((m) => m.linesComplete).map((m) => m.quote.id), mapped.flatMap((m) => m.lines));
+}
+
+/** Upsell offer from the job custom field. Only touches jobs we already have. */
+export async function saveJobFields(nodes: any[]) {
+  const rows = nodes.map((n) => ({ id: n.id as string, offer: upsellOfferFrom(n.customFields) }));
+  if (!rows.length) return;
+  const sql = db();
+  await sql`update public.jobs j set upsell_offer = x.offer
+            from (select * from jsonb_to_recordset(${sql.json(rows as never)}) as t(id text, offer text)) x
+            where j.id = x.id and j.upsell_offer is distinct from x.offer`;
 }
 
 export async function saveJobs(nodes: any[], via: Via) {

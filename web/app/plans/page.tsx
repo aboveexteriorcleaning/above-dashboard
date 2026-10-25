@@ -2,7 +2,7 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { BarRows, Stat, Trend } from "@/components/charts";
 import { PlanSheet } from "@/components/PlanSheet";
-import { getPlanCustomers, getPlanKpis } from "@/lib/data";
+import { getPlanCustomers, getPlanExtras, getPlanKpis } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
 import { money, n, pct, shortDate } from "@/lib/format";
 
@@ -13,7 +13,7 @@ const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US"
 export default async function Plans({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const [k, customers] = await Promise.all([getPlanKpis(period.from, period.to), getPlanCustomers()]);
+  const [k, customers, x] = await Promise.all([getPlanKpis(period.from, period.to), getPlanCustomers(), getPlanExtras(period.from, period.to)]);
   const st = k.status;
   const flagged = (st.overdue ?? 0) + (st.not_booked ?? 0) + (st.needs_date ?? 0) + (st.booked_late ?? 0);
 
@@ -61,6 +61,18 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
             <Stat value={money(k.annual_value)} label="Annual plan value" note="Each home's visit price × visits per year" />
             <Stat value={money(k.booked_ahead)} label="Plan work booked ahead" note={`${n(k.booked_ahead_visits)} upcoming plan visits`} />
             <Stat value={money(k.revenue_to_date)} label="Plan revenue, all time" />
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="health-h">
+          <div className="section-head"><h2 id="health-h">Plan health</h2></div>
+          <div className="stats">
+            <Stat value={money(x.mrr)} label="Monthly recurring equivalent" note="Annual plan value ÷ 12" />
+            <Stat value={money(x.avg_plan_value)} label="Average plan value" note="Per home, per year" />
+            <Stat value={pct(x.renewal_rate)} label="Renewal rate" note={`Of ${n(x.renewal_base)} plan homes past a due date, share with the next visit booked or done`} />
+            <Stat value={pct(x.cancellation_rate)} label="Overdue or lapsed" note="Share of plan homes that have had a visit" tone={(x.cancellation_rate ?? 0) > 0.2 ? "down" : undefined} />
+            <Stat value={money(x.plan_upsell_revenue)} label="Plan members' extra work" note="Non-plan jobs at plan homes this period" />
+            <Stat value={money(x.plan_lifetime_avg)} label="Plan customer lifetime value" note={`vs ${money(x.non_plan_lifetime_avg)} for customers without a plan`} />
           </div>
         </section>
 

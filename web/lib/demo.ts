@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -273,4 +273,26 @@ export const quality = (): QualityKpis => ({
     { id: "c2", job_number: 733, client_name: "Sample Customer N", created_at: "2026-10-08T18:00:00Z", original_job_number: 690, original_crew: "Crew member A", rework_hours: 1.5 },
   ],
   by_person: [{ name: "Crew member A", jobs: 28, callbacks: 2, rate: 0.071 }, { name: "Crew member B", jobs: 19, callbacks: 1, rate: 0.053 }, { name: "Sample Owner", jobs: 9, callbacks: 0, rate: 0 }],
+});
+
+export const upsells = (): UpsellKpis => ({
+  completed_jobs: 37, upsold_jobs: 9, revenue: 2140, on_site: 1460, quote_add_on: 680, job_revenue: 31275,
+  offers: { recorded: 21, offered: 17, accepted: 9, declined: 8, not_a_fit: 4 },
+  by_service: [{ service: "Gutters", times: 5, revenue: 990 }, { service: "Windows", times: 3, revenue: 650 }, { service: "Roof", times: 1, revenue: 500 }],
+  combos: [{ base: "Roof", add_on: "Gutters", jobs: 4, revenue: 820 }, { base: "Windows", add_on: "Gutters", jobs: 2, revenue: 330 }, { base: "House wash", add_on: "Windows", jobs: 2, revenue: 450 }],
+  by_person: [{ name: "Crew member A", jobs: 24, upsold_jobs: 7, revenue: 940, hours: 168 }, { name: "Crew member B", jobs: 15, upsold_jobs: 3, revenue: 410, hours: 94 }, { name: "Sample Owner", jobs: 9, upsold_jobs: 2, revenue: 790, hours: 41 }],
+});
+export const customers = (): CustomerKpis => ({
+  customers: 34, revenue: 31275, jobs: 37, new_customers: 22, new_revenue: 19840, returning_revenue: 11435,
+  first_job_avg: 902, reactivated: 2, reactivated_revenue: 1240, lifetime_avg: 1130, lifetime_avg_2yr: 1890, all_customers: 1180,
+  repeat_rate: 0.31, repeat_base: 640, second_job_rate: 0.22, second_job_base: 210, retention: 0.38, retention_base: 290,
+  days_between: 168, jobs_per_customer_12m: 1.4, cross_service: 0.27,
+  top_customers: [
+    { home_key: "a", jobs: 9, lifetime: 7420, first_at: "2024-04-10T00:00:00Z", last_at: "2026-10-02T00:00:00Z", name: "Sample Customer A" },
+    { home_key: "b", jobs: 6, lifetime: 5110, first_at: "2024-08-01T00:00:00Z", last_at: "2026-09-14T00:00:00Z", name: "Sample Customer B" },
+  ],
+});
+export const planExtras = (): PlanExtras => ({
+  mrr: 1925, avg_plan_value: 745, renewal_rate: 0.78, renewal_base: 18, cancellation_rate: 0.16,
+  plan_upsell_revenue: 1380, plan_lifetime_avg: 2140, non_plan_lifetime_avg: 890,
 });

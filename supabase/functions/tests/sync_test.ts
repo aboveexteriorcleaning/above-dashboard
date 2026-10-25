@@ -106,3 +106,14 @@ Deno.test("PKCE challenge matches the RFC 7636 test vector", async () => {
   assertEquals(await challengeFor("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
     "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
 });
+
+import { upsellOfferFrom } from "../_shared/mapping.ts";
+Deno.test("upsell offer custom field", () => {
+  const f = (v: string) => [{ __typename: "CustomFieldDropdown", label: "Upsell offer", valueDropdown: v }];
+  if (upsellOfferFrom(f("Accepted")) !== "accepted") throw new Error("accepted");
+  if (upsellOfferFrom(f("Declined")) !== "declined") throw new Error("declined");
+  if (upsellOfferFrom(f("Not offered")) !== "not_offered") throw new Error("not offered");
+  if (upsellOfferFrom(f("Not a fit")) !== "not_a_fit") throw new Error("not a fit");
+  if (upsellOfferFrom([{ __typename: "CustomFieldText", label: "Notes", valueText: "x" }]) !== null) throw new Error("other fields ignored");
+  if (upsellOfferFrom(null) !== null) throw new Error("none");
+});

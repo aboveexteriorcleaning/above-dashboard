@@ -158,3 +158,15 @@ export function mapTimesheet(n: any, employeeIdFor: (jobberUserId: string) => st
     synced_at: new Date().toISOString(),
   };
 }
+
+/** "Upsell offer" job custom field -> accepted / declined / not_offered / not_a_fit (or null). */
+export function upsellOfferFrom(customFields: any[] | null | undefined): string | null {
+  const f = (customFields ?? []).find((c: any) => typeof c?.label === "string" && /upsell/i.test(c.label) && "valueDropdown" in c);
+  const v = String(f?.valueDropdown ?? "").trim().toLowerCase();
+  if (!v) return null;
+  if (/^accept/.test(v) || v === "yes") return "accepted";
+  if (/^declin/.test(v) || v === "no") return "declined";
+  if (/not\s*a\s*fit|n\/a/.test(v)) return "not_a_fit";
+  if (/not\s*offer/.test(v)) return "not_offered";
+  return null;
+}

@@ -821,4 +821,31 @@ do $$ declare o jsonb; q jsonb; p jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Revenue: upsells, customers, plan extras ----------
+update public.jobs set upsell_offer = 'accepted' where id = 'J1';
+update public.jobs set upsell_offer = 'declined' where id = 'JS2';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_upsells('2026-10-01','2026-10-31')$q$, 'crew cannot see company upsells');
+select pg_temp.expect_fail($q$select public.owner_customers('2026-10-01','2026-10-31')$q$, 'crew cannot see customer numbers');
+select pg_temp.expect_fail($q$select public.owner_plan_extras('2026-10-01','2026-10-31')$q$, 'crew cannot see plan extras');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare u jsonb; c jsonb; p jsonb; x jsonb; begin
+  u := public.owner_upsells('2026-10-01','2026-10-31');
+  -- the $60 skylight added on site to J1 (roof job, Connor + Sage)
+  assert (u->>'revenue')::numeric = 60 and (u->>'upsold_jobs')::int = 1 and (u->'combos'->0->>'base') = 'Roof', format('upsells %s', u);
+  select y into x from jsonb_array_elements(u->'by_person') y where y->>'name' = 'Connor (test)';
+  assert (x->>'revenue')::numeric = 30, format('split credit %s', x);
+  assert (u->'offers'->>'offered')::int = 2 and (u->'offers'->>'accepted')::int = 1, format('offers %s', u->'offers');
+  c := public.owner_customers('2026-01-01','2026-12-31');
+  assert (c->>'revenue')::numeric = (c->>'new_revenue')::numeric + (c->>'returning_revenue')::numeric, 'new + returning = all';
+  assert (c->>'customers')::int > 0 and (c->>'lifetime_avg')::numeric > 0, format('customers %s', c);
+  p := public.owner_plan_extras('2026-10-01','2026-10-31');
+  assert round((p->>'mrr')::numeric * 12) = round((public.owner_plans('2026-10-01','2026-10-31')->>'annual_value')::numeric), format('mrr %s', p);
+  raise notice 'ok  revenue: upsells with offers, customers, plan extras';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

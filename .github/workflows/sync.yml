@@ -16,6 +16,7 @@ on:
           - finish           # confirm the history import is complete and switch on the 15-minute sync
           - incremental      # pull what changed since the last sync
           - refresh-jobs     # re-read every job from Jobber (e.g. after editing old jobs' crews); read-only
+          - refresh-upsell-offers  # re-read the "Upsell offer" field on every job; read-only
           - quo-check        # confirm the Quo key works; reads one page of each list, saves nothing
           - quo-backfill     # import the last 2 years of Quo calls and texts (read-only); turns on the 5-minute Quo sync
           - quo-status       # Quo sync time and record counts (no customer details)
@@ -80,6 +81,7 @@ jobs:
                 call "mode=backfill&only=jobs"
                 if [ "$i" = 40 ]; then echo "::error::job refresh did not finish in 40 rounds"; exit 1; fi
               done ;;
+            refresh-upsell-offers) call "mode=backfill&only=jobfields" ;;
             quo-check)       call "quo:mode=check" ;;
             quo-status)      call "quo:mode=status" ;;
             quo-incremental) call "quo:mode=incremental&force=1" ;;
