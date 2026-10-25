@@ -3,7 +3,7 @@ import { Periods } from "@/components/Periods";
 import { Aging, BarRows, MoneyFlow, Stat, Trend } from "@/components/charts";
 import { getOverview, getTrend } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
-import { change, hours, money, n, pct, shortDate } from "@/lib/format";
+import { change, money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +46,9 @@ export default async function Overview({ searchParams }: { searchParams: Promise
 
             <div className="grid-2 section">
               <section aria-labelledby="sales">
-                <div className="section-head"><h2 id="sales">Quotes</h2><span className="muted small">{n(o.leads.requests)} new requests</span></div>
+                <div className="section-head"><h2 id="sales">Quotes</h2></div>
                 <div className="stats">
                   <Stat value={pct(o.quotes.win_rate)} label="Approval rate" note={`${n(o.quotes.won)} approved, ${n(o.quotes.sent)} sent this period`} />
-                  <Stat value={hours(o.quotes.median_turnaround_hours)} label="Request to quote" note={o.quotes.turnaround_sample ? `Median of ${n(o.quotes.turnaround_sample)} quotes` : "No linked requests yet"} />
                   <Stat value={money(o.quotes.open_value)} label="Still waiting" note="Sent this period, not yet approved" />
                 </div>
               </section>
@@ -83,21 +82,10 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               </section>
             </div>
 
-            <div className="grid-2 section">
-              <section aria-labelledby="ar">
-                <div className="section-head"><h2 id="ar">Unpaid invoices</h2><span className="muted small">{n(o.receivables.open_invoices)} open, as of now</span></div>
-                <Aging r={o.receivables} />
-              </section>
-              <section aria-labelledby="src">
-                <div className="section-head"><h2 id="src">Where requests came from</h2></div>
-                {o.lead_sources.length ? (
-                  <table className="rows"><tbody>
-                    {o.lead_sources.map((s) => <tr key={s.source}><td>{s.source}</td><td className="num">{n(s.requests)}</td></tr>)}
-                  </tbody></table>
-                ) : <p className="muted">No requests in this period.</p>}
-                <p className="muted small">Ad costs and lead quality arrive with the Meta and Quo connections.</p>
-              </section>
-            </div>
+            <section className="section" aria-labelledby="ar">
+              <div className="section-head"><h2 id="ar">Unpaid invoices</h2><span className="muted small">{n(o.receivables.open_invoices)} open, as of now</span></div>
+              <Aging r={o.receivables} />
+            </section>
           </main>
     </Shell>
   );
