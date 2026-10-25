@@ -20,7 +20,7 @@ const JOB = `id jobNumber title jobStatus jobType createdAt updatedAt startAt co
   property { id address { street1 city postalCode } }
   lineItems(first: 30) { nodes { id name quantity unitPrice totalPrice createdAt } pageInfo { hasNextPage } }
   visits(first: 50) { nodes { id startAt endAt completedAt visitStatus
-    assignedUsers(first: 6) { nodes { id } } } pageInfo { hasNextPage } }`;
+    assignedUsers(first: 10) { nodes { id } pageInfo { hasNextPage } } } pageInfo { hasNextPage } }`;
 
 const INVOICE = `id invoiceNumber invoiceStatus issuedDate dueDate updatedAt
   client { id } jobs(first: 3) { nodes { id } }

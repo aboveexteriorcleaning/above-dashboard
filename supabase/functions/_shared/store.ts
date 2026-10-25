@@ -74,7 +74,17 @@ export async function saveJobs(nodes: any[], via: Via) {
   const resolve = await employeeResolver(assignments.map((a) => ({ id: a.jobber_user_id })));
   const rows = assignments
     .map((a) => ({ visit_id: a.visit_id, employee_id: resolve(a.jobber_user_id) }))
-    .filter((a) => a.employee_id);
+    .filter((a) => a.employee_id) as { visit_id: string; employee_id: string }[];
+  // Mirror un-assignments: for every visit whose full crew list we received, remove anyone
+  // no longer on it. (Before this, people taken off a visit in Jobber stayed assigned here.)
+  const complete = mapped.flatMap((m) => m.assignmentsCompleteFor);
+  if (complete.length) {
+    const sql = db();
+    const keep = rows.map((r) => `${r.visit_id}|${r.employee_id}`);
+    await sql`delete from public.visit_assignments
+              where visit_id = any(${complete})
+                and not ((visit_id || '|' || employee_id::text) = any(${keep}))`;
+  }
   await upsert("public.visit_assignments", rows, ["visit_id", "employee_id"]);
 }
 

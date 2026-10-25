@@ -15,6 +15,7 @@ on:
           - backfill-all     # import full history, one record type at a time
           - finish           # confirm the history import is complete and switch on the 15-minute sync
           - incremental      # pull what changed since the last sync
+          - refresh-jobs     # re-read every job from Jobber (e.g. after editing old jobs' crews); read-only
 
 permissions:
   contents: read
@@ -61,4 +62,12 @@ jobs:
                 done
               done ;;
             finish)      call "mode=backfill&only=done" ;;
+            refresh-jobs)
+              # Start over once, then keep going from the saved place until every job is re-read.
+              call "mode=backfill&only=jobs&restart=1"
+              for i in $(seq 1 40); do
+                grep -q '"done": true' out.json && break
+                call "mode=backfill&only=jobs"
+                if [ "$i" = 40 ]; then echo "::error::job refresh did not finish in 40 rounds"; exit 1; fi
+              done ;;
           esac

@@ -119,7 +119,10 @@ export function mapJob(n: any) {
     (v.assignedUsers?.nodes ?? []).map((u: any) => ({ visit_id: v.id, jobber_user_id: u.id })));
   const linesComplete = !n.lineItems?.pageInfo?.hasNextPage;
   const visitsComplete = !n.visits?.pageInfo?.hasNextPage;
-  return { job, property, lines, visits, assignments, linesComplete, visitsComplete };
+  // Visits whose full list of assigned people we received (so removals can be mirrored).
+  const assignmentsCompleteFor = (n.visits?.nodes ?? [])
+    .filter((v: any) => !v.assignedUsers?.pageInfo?.hasNextPage).map((v: any) => v.id as string);
+  return { job, property, lines, visits, assignments, linesComplete, visitsComplete, assignmentsCompleteFor };
 }
 
 export function mapInvoice(n: any) {

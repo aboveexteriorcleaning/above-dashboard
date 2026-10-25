@@ -91,6 +91,20 @@ Deno.test({ name: "save Jobber records end to end", sanitizeResources: false, sa
   const [{ n: linesKept }] = await sql`select count(*)::int n from public.job_line_items where job_id = 'J1'`;
   assertEquals(linesKept, 2, "line items were deleted from a partial list");
 
+  // Reassigning a past job in Jobber: Connor taken off, Kale added. Connor must disappear.
+  const swapped = job(baseLines);
+  swapped.visits.nodes[0].assignedUsers = { nodes: [{ id: "U-SAGE" }, { id: "U-KALE" }] } as any;
+  await saveJobs([swapped], "webhook");
+  const crew = await sql`select e.full_name from public.visit_assignments va
+                         join public.employees e on e.id = va.employee_id where va.visit_id = 'V1' order by 1`;
+  assertEquals(crew.map((c) => c.full_name), ["Kale (test)", "Sage (test)"], "un-assigned person must be removed");
+  // A visit whose crew list was cut short must NOT lose anyone.
+  const partial = job(baseLines);
+  partial.visits.nodes[0].assignedUsers = { nodes: [{ id: "U-SAGE" }], pageInfo: { hasNextPage: true } } as any;
+  await saveJobs([partial], "poll");
+  const [{ n: still }] = await sql`select count(*)::int n from public.visit_assignments where visit_id = 'V1'`;
+  assertEquals(still, 2, "partial crew list removed someone");
+
   // Status history is recorded once per change.
   await saveJobs([{ ...job(baseLines), jobStatus: "requires_invoicing" }], "webhook");
   const ev = await sql`select from_value, to_value from public.entity_events where entity_type='job' and entity_id='J1' order by id`;
