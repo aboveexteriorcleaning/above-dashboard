@@ -15,7 +15,7 @@ export function overview(from: string, to: string): Overview {
     leads: { requests: 71 },
     booked_ahead: { d7: 9840, d14: 17260, d30: 29415, recurring_jobs_in_window: 6 },
     receivables: { current: 3120, d1_30: 2480, d31_60: 760, d61_90: 0, d90_plus: 340, open_invoices: 11 },
-    customers: { new: 22, returning: 15, active_plans: 34 },
+    customers: { new: 22, returning: 15, returning_own: 9, returning_plan: 6, active_plans: 34 },
     quality: { callbacks: 2, callback_rate: 0.054 },
     by_service: [
       { service: "Softwash Roof Cleaning", revenue: 12840, jobs: 13 },

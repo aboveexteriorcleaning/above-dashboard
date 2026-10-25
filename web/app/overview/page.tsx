@@ -55,8 +55,9 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               <section aria-labelledby="customers">
                 <div className="section-head"><h2 id="customers">Customers</h2></div>
                 <div className="stats">
-                  <Stat value={n(o.customers.new)} label="First-time customers" />
-                  <Stat value={n(o.customers.returning)} label="Returning customers" />
+                  <Stat value={n(o.customers.new)} label="First-time customers" note="Counted by address" />
+                  <Stat value={n(o.customers.returning_own)} label="Came back on their own" note="Returning for any service, not a plan visit" />
+                  <Stat value={n(o.customers.returning_plan)} label="Plan visits" note="Returning for a scheduled plan visit" />
                   <Stat value={n(o.customers.active_plans)} label="Homes on a maintenance plan" note="Next plan visit booked, or a plan visit within the last cycle" />
                   <Stat value={n(o.quality.callbacks)} label="Callbacks"
                     note={o.quality.callback_rate != null ? `${pct(o.quality.callback_rate)} of completed jobs` : undefined}

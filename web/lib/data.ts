@@ -17,7 +17,7 @@ export type Overview = {
   leads: { requests: number };
   booked_ahead: { d7: number; d14: number; d30: number; recurring_jobs_in_window: number };
   receivables: { current: number; d1_30: number; d31_60: number; d61_90: number; d90_plus: number; open_invoices: number };
-  customers: { new: number; returning: number; active_plans: number };
+  customers: { new: number; returning: number; returning_own: number; returning_plan: number; active_plans: number };
   quality: { callbacks: number; callback_rate: number | null };
   by_service: { service: string; revenue: number; jobs: number }[];
   by_zip: { zip: string; city: string; revenue: number; jobs: number }[];

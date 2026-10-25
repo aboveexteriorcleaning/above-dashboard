@@ -537,4 +537,33 @@ do $$ declare t record; o jsonb; begin
 end $$;
 reset role;
 
+-- ---------- first-time vs returning customers (November, by address) ----------
+insert into public.clients (id,name) values ('C30','Returning'),('C32','Returning (duplicate record)'),
+  ('C31','Plan visit'),('C33','Brand new'),('C34','Returning, sold a plan');
+insert into public.properties (id,client_id,street) values ('P30','C30','4 Return St'),('P32','C32','4 return st'),
+  ('P31','C31','5 Plan St'),('P33','C33','6 New St'),('P34','C34','7 Sold St');
+insert into public.jobs (id,client_id,property_id,title,status,total,created_at,start_at,completed_at) values
+ ('R1','C30','P30','Windows','archived',300,'2026-09-01','2026-09-05','2026-09-05 20:00Z'),
+ ('R2','C32','P32','Roof','archived',800,'2026-11-01','2026-11-05','2026-11-05 20:00Z'),  -- other service, other record
+ ('R3','C31','P31','Windows','archived',350,'2026-05-01','2026-05-10','2026-05-10 20:00Z'),
+ ('R4','C31','P31','Windows','archived',350,'2026-05-10','2026-11-06','2026-11-06 20:00Z'),
+ ('R5','C33','P33','Gutters','archived',250,'2026-11-01','2026-11-07','2026-11-07 20:00Z'),
+ ('R6','C34','P34','Windows','archived',300,'2026-07-25','2026-08-01','2026-08-01 20:00Z'),
+ ('R7','C34','P34','Windows','archived',350,'2026-11-01','2026-11-08','2026-11-08 20:00Z');
+insert into public.job_line_items (id,job_id,product_name,total_price,created_at) values
+ ('RL3','R3','Biannual Window Cleaning Plan',-50,'2026-05-01'),
+ ('RL4','R4','Biannual Window Cleaning Plan',-50,'2026-05-10'),
+ ('RL7','R7','Biannual Window Cleaning Plan',-50,'2026-11-08 19:00Z');
+select app.refresh_derived();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare c jsonb; begin
+  c := public.owner_overview('2026-11-01','2026-11-30')->'customers';
+  assert (c->>'new')::int = 1, format('new %s', c);
+  assert (c->>'returning_own')::int = 2 and (c->>'returning_plan')::int = 1 and (c->>'returning')::int = 3, format('returning %s', c);
+  assert (select new_clients from public.company_summary('2026-11-01','2026-11-30')) = 1, 'crew new customers by address';
+  raise notice 'ok  customers: by address; returning split into on their own vs plan visits';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
