@@ -634,6 +634,10 @@ do $$ declare o jsonb; p jsonb; begin
      and (select clock_from from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551002') = 'their reply', 'form lead clock starts at their reply';
   -- D: we called at 18:03 before they replied: 3 min from the auto-text
   assert (select response_minutes from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551004') = 3, 'we reached out first';
+  -- A called Dec 1 17:00, quote sent Dec 2 19:00 (26h, the slow bucket), booked
+  assert (o->'quote_speed'->>'quoted')::int = 1 and (o->'quote_speed'->>'avg_hours')::numeric = 26
+     and (o->'quote_speed'->>'slow_quoted')::int = 1 and (o->'quote_speed'->>'slow_booked')::int = 1
+     and (o->'quote_speed'->>'fast_quoted')::int = 0, format('quote speed %s', o->'quote_speed');
   assert (o->'speed_booking'->>'fast_leads')::int = 2 and (o->'speed_booking'->>'fast_booked')::int = 1
      and (o->'speed_booking'->>'slow_leads')::int = 2 and (o->'speed_booking'->>'slow_booked')::int = 0, format('speed booking %s', o->'speed_booking');
   assert (o->>'within_5_min')::numeric = 0.5, format('within 5 %s', o->>'within_5_min');   -- A and D, of the 4 we could answer
@@ -712,6 +716,25 @@ do $$ declare f jsonb; begin
   assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552001') = 'Followed up twice', 'twice';
   assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552004') is null, 'no follow-up needed';
   raise notice 'ok  quo: first and second follow-ups, and what they led to';
+end $$;
+reset role;
+
+-- Never replied after both follow-ups; and a fast quote that booked.
+insert into public.quotes (id, client_id, status, total, created_at, sent_at) values ('QL1', 'CL1', 'converted', 400, '2026-09-04', '2026-09-04 10:00Z');  -- 13h after their reply
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, quo_user_id, phone_number_id, text_head_hash, text_tail_hash) values
+ ('u5a', 'message', 'outbound', '+13605552005', '2026-09-01 18:00Z', 'USK', 'PN1', 'h1', 't1'),
+ ('u5b', 'message', 'outbound', '+13605552005', '2026-09-02 19:00Z', 'USK', 'PN1', 'x1', 'x2'),
+ ('u5c', 'message', 'outbound', '+13605552005', '2026-09-03 20:00Z', 'USK', 'PN1', 'x3', 'x4');
+select app.refresh_quo();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; begin
+  o := public.owner_leads('2026-09-01','2026-09-30');
+  assert (o->>'not_converted')::int = 1 and (o->>'got_both_follow_ups')::int = 2, format('not converted %s', o->>'not_converted');
+  assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552005') = 'Followed up twice, never replied', 'never replied label';
+  assert (o->'quote_speed'->>'fast_quoted')::int = 1 and (o->'quote_speed'->>'fast_booked')::int = 1
+     and (o->'quote_speed'->>'avg_hours')::numeric = 13, format('fast quote %s', o->'quote_speed');
+  raise notice 'ok  quo: never-replied leads, and time from first contact to quote';
 end $$;
 reset role;
 

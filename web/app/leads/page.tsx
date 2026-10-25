@@ -4,7 +4,7 @@ import { Stat } from "@/components/charts";
 import { LeadSheet } from "@/components/LeadSheet";
 import { getLeadKpis, getLeadList, getQuoFreshness } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
-import { minutes, money, n, pct, shortDate, timeAgo } from "@/lib/format";
+import { hours, minutes, money, n, pct, shortDate, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -93,11 +93,26 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
             <Stat value={pct(fu.fu2_due ? fu.fu2_done / fu.fu2_due : null)} label="Second follow-up done" note={`${n(fu.fu2_done)} of ${n(fu.fu2_due)} due`} />
             <Stat value={pct(fu.followed_up ? fu.followed_up_booked / fu.followed_up : null)} label="Booked after a follow-up"
               note={`${n(fu.followed_up_booked)} of ${n(fu.followed_up)} followed-up leads; ${n(fu.followed_up_replied)} replied`} />
+            <Stat value={n(k.not_converted)} label="Never replied" note={`Got the auto-text and both follow-ups${k.got_both_follow_ups ? `; ${pct(k.not_converted / k.got_both_follow_ups)} of ${n(k.got_both_follow_ups)}` : ""}`} />
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>
             First follow-up is due when they haven&rsquo;t replied 24 hours after the auto-text, and counts if someone calls or texts 12&ndash;48 hours after it.
             Second follow-up is due when they haven&rsquo;t replied 24 hours after the first, and counts 12&ndash;48 hours after the first. Each is counted once it&rsquo;s done
             or its window has closed. Booked is matched by phone ({n(fu.followed_up_matched)} of {n(fu.followed_up)} followed-up leads match a Jobber client).
+          </p>
+        </section>
+
+        <section className="section" aria-labelledby="tq-h">
+          <div className="section-head"><h2 id="tq-h">Time to quote</h2><span className="muted small">From their first call or text to their first quote</span></div>
+          <div className="stats">
+            <Stat value={hours(k.quote_speed.avg_hours)} label="Average time to quote" note={`Median ${hours(k.quote_speed.median_hours)}, ${n(k.quote_speed.quoted)} quoted leads`} />
+            <Stat value={pct(k.quote_speed.fast_quoted ? k.quote_speed.fast_booked / k.quote_speed.fast_quoted : null)} label="Booked, quoted within 24 hr"
+              note={`${n(k.quote_speed.fast_booked)} of ${n(k.quote_speed.fast_quoted)} leads`} />
+            <Stat value={pct(k.quote_speed.slow_quoted ? k.quote_speed.slow_booked / k.quote_speed.slow_quoted : null)} label="Booked, quoted after 24 hr"
+              note={`${n(k.quote_speed.slow_booked)} of ${n(k.quote_speed.slow_quoted)} leads`} />
+          </div>
+          <p className="muted small" style={{ maxWidth: "75ch" }}>
+            For form leads, first contact is their reply to the auto-text. Quotes and bookings are matched to the lead by phone number, so only leads whose Jobber profile has their phone are included.
           </p>
         </section>
 

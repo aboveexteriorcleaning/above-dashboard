@@ -42,10 +42,10 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   }, [rows, filter, q]);
 
   function downloadCsv() {
-    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Clock started at", "Replied by", "Follow-up", "Quoted", "Booked", "Booked value"];
+    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Clock started at", "Replied by", "Follow-up", "Quoted", "Hours to quote", "Booked", "Booked value"];
     const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = shown.map((r) => [r.client_name, r.contact_phone, r.lead_at, r.source, r.line_name, r.response_minutes, r.clock_from, r.responded_by, r.follow_up,
-      r.quoted_at?.slice(0, 10), r.booked_at?.slice(0, 10), r.booked_value].map(esc).join(","));
+      r.quoted_at?.slice(0, 10), r.hours_to_quote, r.booked_at?.slice(0, 10), r.booked_value].map(esc).join(","));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" }));
     a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -95,7 +95,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
                     {r.follow_up && <div className={`small ${/due|Missed/.test(r.follow_up) ? "down" : "muted"}`}>{r.follow_up}</div>}
                   </td>
                   <td className="date">{mins(r.response_minutes)}{r.responded_by && <div className="small muted">{r.responded_by}{r.clock_from === "their reply" ? ", after their reply" : ""}</div>}</td>
-                  <td className="date">{day(r.quoted_at)}</td>
+                  <td className="date">{day(r.quoted_at)}{r.hours_to_quote != null && <div className="small muted">{r.hours_to_quote < 48 ? `${Math.round(r.hours_to_quote * 10) / 10} hr` : `${Math.round(r.hours_to_quote / 2.4) / 10} days`} after contact</div>}</td>
                   <td className="num">{r.booked_at ? usd.format(r.booked_value) : <span className="muted">—</span>}</td>
                 </tr>
               );

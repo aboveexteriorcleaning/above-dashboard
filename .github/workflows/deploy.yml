@@ -72,6 +72,7 @@ jobs:
                    supabase/migrations/20261025000021_reply_clock.sql \
                    supabase/migrations/20261025000022_follow_up_rule.sql \
                    supabase/migrations/20261025000023_follow_ups.sql \
+                   supabase/migrations/20261025000024_quote_speed.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -105,7 +106,8 @@ jobs:
                    ../migrations/20261025000020_leads_from_jobber.sql \
                    ../migrations/20261025000021_reply_clock.sql \
                    ../migrations/20261025000022_follow_up_rule.sql \
-                   ../migrations/20261025000023_follow_ups.sql; do
+                   ../migrations/20261025000023_follow_ups.sql \
+                   ../migrations/20261025000024_quote_speed.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/
