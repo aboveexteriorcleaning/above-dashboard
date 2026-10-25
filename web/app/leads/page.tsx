@@ -32,7 +32,8 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
   const [k, list] = await Promise.all([getLeadKpis(period.from, period.to), getLeadList(period.from, period.to)]);
   const m = k.missed;
   const maxMonth = Math.max(...k.monthly.map((x) => x.leads), 1);
-  const attention = k.no_reply + m.not_returned;
+  const fu = k.follow_up;
+  const attention = k.no_reply + m.not_returned + k.follow_ups_due_now;
 
   return (
     <Shell page="leads" session={session}>
@@ -52,7 +53,8 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <a href="#list" className="attention">
             <strong>{n(attention)} {attention === 1 ? "person is" : "people are"} waiting on you</strong>
             <span>{[k.no_reply && `${k.no_reply} ${k.no_reply === 1 ? "lead" : "leads"} with no reply yet`,
-              m.not_returned && `${m.not_returned} missed ${m.not_returned === 1 ? "call" : "calls"} not returned`].filter(Boolean).join(" · ")}</span>
+              m.not_returned && `${m.not_returned} missed ${m.not_returned === 1 ? "call" : "calls"} not returned`,
+              k.follow_ups_due_now && `${k.follow_ups_due_now} ${k.follow_ups_due_now === 1 ? "follow-up" : "follow-ups"} due now`].filter(Boolean).join(" · ")}</span>
           </a>
         )}
 
@@ -81,6 +83,21 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <p className="muted small" style={{ maxWidth: "75ch" }}>
             {n(k.speed_booking.matched_leads)} of this period&rsquo;s {n(k.leads)} leads have a phone number that matches a Jobber client, so these booking rates firm up as more profiles carry phone numbers.
             Form leads are timed from the auto-text if you reached them within 24 hours, otherwise from their reply to your next reply. Follow-ups after 24 hours of silence don&rsquo;t count.
+          </p>
+        </section>
+
+        <section className="section" aria-labelledby="fu-h">
+          <div className="section-head"><h2 id="fu-h">Follow-ups</h2><span className="muted small">Form leads who didn&rsquo;t answer the auto-text</span></div>
+          <div className="stats">
+            <Stat value={pct(fu.fu1_due ? fu.fu1_done / fu.fu1_due : null)} label="First follow-up done" note={`${n(fu.fu1_done)} of ${n(fu.fu1_due)} due`} />
+            <Stat value={pct(fu.fu2_due ? fu.fu2_done / fu.fu2_due : null)} label="Second follow-up done" note={`${n(fu.fu2_done)} of ${n(fu.fu2_due)} due`} />
+            <Stat value={pct(fu.followed_up ? fu.followed_up_booked / fu.followed_up : null)} label="Booked after a follow-up"
+              note={`${n(fu.followed_up_booked)} of ${n(fu.followed_up)} followed-up leads; ${n(fu.followed_up_replied)} replied`} />
+          </div>
+          <p className="muted small" style={{ maxWidth: "75ch" }}>
+            First follow-up is due when they haven&rsquo;t replied 24 hours after the auto-text, and counts if someone calls or texts 12&ndash;48 hours after it.
+            Second follow-up is due when they haven&rsquo;t replied 24 hours after the first, and counts 12&ndash;48 hours after the first. Each is counted once it&rsquo;s done
+            or its window has closed. Booked is matched by phone ({n(fu.followed_up_matched)} of {n(fu.followed_up)} followed-up leads match a Jobber client).
           </p>
         </section>
 

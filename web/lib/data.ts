@@ -200,6 +200,9 @@ export async function getTeamPlanSales(from: string, to: string): Promise<TeamPl
 // ---------- leads (Quo, owners) ----------
 export type LeadKpis = {
   leads: number; responded: number; no_reply: number; waiting_on_them: number; timed_leads: number;
+  follow_up: { fu1_due: number; fu1_done: number; fu2_due: number; fu2_done: number; followed_up: number;
+    followed_up_replied: number; followed_up_booked: number; followed_up_matched: number };
+  follow_ups_due_now: number;
   median_response_min: number | null; median_response_min_in_hours: number | null; within_5_min: number | null;
   quoted: number; booked: number; booked_value: number;
   speed_booking: { fast_leads: number; fast_booked: number; slow_leads: number; slow_booked: number; matched_leads: number };
@@ -214,6 +217,7 @@ export type Lead = {
   contact_phone: string; client_name: string | null; client_id: string | null; lead_at: string; source: string;
   line_name: string | null; first_response_at: string | null; response_minutes: number | null; responded_by: string | null;
   quoted_at: string | null; booked_at: string | null; booked_value: number; in_hours: boolean; clock_from: string | null; waiting_on_them: boolean;
+  follow_up: string | null; fu1_at: string | null; fu2_at: string | null;
 };
 export type QuoFreshness = { last_synced: string | null; healthy: boolean; connected: boolean };
 

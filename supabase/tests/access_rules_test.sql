@@ -685,4 +685,34 @@ do $$ declare r record; begin
 end $$;
 reset role;
 
+-- ---------- follow-ups (September, so every window has closed) ----------
+insert into public.clients (id, name, phone) values ('CL1', 'Followed-up lead', '+13605552001');
+insert into public.jobs (id, client_id, title, status, total, created_at) values ('JL1', 'CL1', 'Windows', 'upcoming', 400, '2026-09-05 18:00Z');
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, quo_user_id, phone_number_id, text_head_hash, text_tail_hash) values
+ ('u1a', 'message', 'outbound', '+13605552001', '2026-09-01 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),   -- auto-text
+ ('u1b', 'message', 'outbound', '+13605552001', '2026-09-02 19:00Z', null, null, 'USK', 'PN1', 'x1', 'x2'),   -- 1st follow-up (+25h)
+ ('u1c', 'call',    'outbound', '+13605552001', '2026-09-03 20:00Z', null, 20,   'USK', 'PN1', null, null),   -- 2nd follow-up (+25h)
+ ('u1d', 'message', 'inbound',  '+13605552001', '2026-09-03 21:00Z', null, null, null,  'PN1', null, null),   -- they reply
+ ('u2a', 'message', 'outbound', '+13605552002', '2026-09-01 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),   -- auto-text, never followed up
+ ('u3a', 'message', 'outbound', '+13605552003', '2026-09-01 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),   -- auto-text
+ ('u3b', 'message', 'outbound', '+13605552003', '2026-09-02 18:30Z', null, null, 'USK', 'PN1', 'x1', 'x2'),   -- 1st follow-up only
+ ('u4a', 'message', 'outbound', '+13605552004', '2026-09-01 18:00Z', null, null, 'USK', 'PN1', 'h1', 't1'),   -- auto-text
+ ('u4b', 'message', 'inbound',  '+13605552004', '2026-09-01 20:00Z', null, null, null,  'PN1', null, null),   -- replied same day
+ ('u4c', 'message', 'outbound', '+13605552004', '2026-09-01 20:05Z', null, null, 'USK', 'PN1', 'y1', 'y2');
+select app.refresh_quo();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare f jsonb; begin
+  f := public.owner_leads('2026-09-01','2026-09-30')->'follow_up';
+  assert (f->>'fu1_due')::int = 3 and (f->>'fu1_done')::int = 2, format('first follow-ups %s', f);    -- L1, L3 done; L2 missed; L4 replied
+  assert (f->>'fu2_due')::int = 2 and (f->>'fu2_done')::int = 1, format('second follow-ups %s', f);   -- L1 done; L3 missed
+  assert (f->>'followed_up')::int = 2 and (f->>'followed_up_replied')::int = 1 and (f->>'followed_up_booked')::int = 1, format('follow-up results %s', f);
+  assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552002') = 'Missed first follow-up', 'missed first';
+  assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552003') = 'Missed second follow-up', 'missed second';
+  assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552001') = 'Followed up twice', 'twice';
+  assert (select follow_up from public.lead_list('2026-09-01','2026-09-30') where contact_phone = '+13605552004') is null, 'no follow-up needed';
+  raise notice 'ok  quo: first and second follow-ups, and what they led to';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

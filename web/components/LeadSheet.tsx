@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import type { Lead } from "@/lib/data";
 import { jobberClientUrl } from "@/lib/jobber-links";
 
-type Filter = "all" | "no_reply" | "not_quoted" | "quoted" | "booked";
+type Filter = "all" | "no_reply" | "follow_up" | "not_quoted" | "quoted" | "booked";
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric" }) : "—";
@@ -23,6 +23,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   const counts = useMemo(() => ({
     all: rows.length,
     no_reply: rows.filter((r) => !r.first_response_at && !r.waiting_on_them).length,
+    follow_up: rows.filter((r) => r.follow_up?.endsWith("due")).length,
     not_quoted: rows.filter((r) => !r.quoted_at && !r.booked_at).length,
     quoted: rows.filter((r) => r.quoted_at && !r.booked_at).length,
     booked: rows.filter((r) => r.booked_at).length,
@@ -31,6 +32,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
     const n = q.trim().toLowerCase(), digits = n.replace(/\D/g, "");
     return rows.filter((r) => {
       const okFilter = filter === "all" || (filter === "no_reply" ? !r.first_response_at && !r.waiting_on_them
+        : filter === "follow_up" ? !!r.follow_up?.endsWith("due")
         : filter === "not_quoted" ? !r.quoted_at && !r.booked_at
         : filter === "quoted" ? !!r.quoted_at && !r.booked_at : !!r.booked_at);
       const okSearch = !n || r.client_name?.toLowerCase().includes(n) || r.source.toLowerCase().includes(n)
@@ -40,9 +42,9 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   }, [rows, filter, q]);
 
   function downloadCsv() {
-    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Clock started at", "Replied by", "Quoted", "Booked", "Booked value"];
+    const head = ["Name", "Phone", "First contact", "Source", "Line", "First reply (min)", "Clock started at", "Replied by", "Follow-up", "Quoted", "Booked", "Booked value"];
     const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const lines = shown.map((r) => [r.client_name, r.contact_phone, r.lead_at, r.source, r.line_name, r.response_minutes, r.clock_from, r.responded_by,
+    const lines = shown.map((r) => [r.client_name, r.contact_phone, r.lead_at, r.source, r.line_name, r.response_minutes, r.clock_from, r.responded_by, r.follow_up,
       r.quoted_at?.slice(0, 10), r.booked_at?.slice(0, 10), r.booked_value].map(esc).join(","));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" }));
@@ -51,7 +53,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
   }
 
   const chips: { key: Filter; label: string }[] = [
-    { key: "all", label: "All" }, { key: "no_reply", label: "No reply yet" }, { key: "not_quoted", label: "Not quoted" },
+    { key: "all", label: "All" }, { key: "no_reply", label: "No reply yet" }, { key: "follow_up", label: "Follow-up due" }, { key: "not_quoted", label: "Not quoted" },
     { key: "quoted", label: "Quoted" }, { key: "booked", label: "Booked" },
   ];
   const tag = { booked: ["good", "Booked"], quoted: ["warn", "Quoted"], replied: ["off", "Replied"], waiting_them: ["off", "Waiting on them"], no_reply: ["bad", "No reply yet"] } as const;
@@ -88,7 +90,10 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
                   </td>
                   <td className="date">{when(r.lead_at)}{!r.in_hours && <div className="small muted">After hours (7pm–7am)</div>}</td>
                   <td>{r.source}{r.line_name && <div className="small muted">{r.line_name}</div>}</td>
-                  <td><span className={`status ${tone}`}>{label}</span></td>
+                  <td>
+                    <span className={`status ${tone}`}>{label}</span>
+                    {r.follow_up && <div className={`small ${/due|Missed/.test(r.follow_up) ? "down" : "muted"}`}>{r.follow_up}</div>}
+                  </td>
                   <td className="date">{mins(r.response_minutes)}{r.responded_by && <div className="small muted">{r.responded_by}{r.clock_from === "their reply" ? ", after their reply" : ""}</div>}</td>
                   <td className="date">{day(r.quoted_at)}</td>
                   <td className="num">{r.booked_at ? usd.format(r.booked_value) : <span className="muted">—</span>}</td>
