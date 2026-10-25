@@ -70,6 +70,17 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           </div>
         </section>
 
+        <section className="section" aria-labelledby="contact-h">
+          <div className="section-head"><h2 id="contact-h">Working the leads</h2></div>
+          <div className="stats">
+            <Stat value={pct(k.contact_rate)} label="Contact rate" note={`${n(k.two_way)} of ${n(k.leads)} leads had a real two-way conversation`} />
+            <Stat value={k.avg_attempts == null ? "—" : String(k.avg_attempts)} label="Contact attempts per lead" note="Calls and texts by a person before reaching them" />
+            <Stat value={pct(k.leads ? k.unworked / k.leads : null)} label="Unworked leads" note={`${n(k.unworked)} leads never got a call or text from a person`} tone={k.unworked ? "down" : undefined} />
+            <Stat value={minutes(k.median_first_any_min)} label="First response, automatic included" note="Calls and texts that came in; form leads get the auto-text instantly" />
+            <Stat value={k.lead_to_booking_days == null ? "—" : `${k.lead_to_booking_days} days`} label="Lead to booking" note={`Median; ${k.touches_before_booking ?? "—"} touches before booking on average (matched by phone)`} />
+          </div>
+        </section>
+
         <section className="section" aria-labelledby="speed-h">
           <div className="section-head"><h2 id="speed-h">Does speed pay off?</h2><span className="muted small">Booked = matched to a Jobber job by phone</span></div>
           <div className="stats">
@@ -165,6 +176,18 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
             )}
           </div>
         </div>
+
+        {k.by_zip.length > 0 && (
+          <section className="section" aria-labelledby="zip-h">
+            <div className="section-head"><h2 id="zip-h">Revenue per lead by ZIP</h2><span className="muted small">Completed revenue within 180 days; leads matched to Jobber by phone, ZIPs with 2+ leads</span></div>
+            <table className="rows">
+              <thead><tr><th>ZIP</th><th className="num">Leads</th><th className="num">Booked</th><th className="num">Revenue</th><th className="num">Per lead</th></tr></thead>
+              <tbody>{k.by_zip.map((z) => (
+                <tr key={z.zip}><td>{z.zip}</td><td className="num">{n(z.leads)}</td><td className="num">{n(z.booked)}</td><td className="num">{money(z.revenue)}</td><td className="num">{money(z.revenue_per_lead)}</td></tr>
+              ))}</tbody>
+            </table>
+          </section>
+        )}
 
         <section className="section" aria-labelledby="ppl-h">
           <div className="section-head"><h2 id="ppl-h">Phones by person</h2><span className="muted small">{period.label}</span></div>

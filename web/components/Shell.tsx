@@ -3,7 +3,23 @@ import { redirect } from "next/navigation";
 import { getFreshness, getSession, type Role, type Session } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
-type Page = "overview" | "leads" | "ads" | "plans" | "team" | "me";
+type Page = "overview" | "leads" | "ads" | "sales" | "crews" | "quality" | "plans" | "upsells" | "customers" | "financial" | "team" | "me";
+
+type Group = { key: string; label: string; pages: { key: Page; href: string; label: string }[] };
+/** Owner navigation, grouped the way the KPI blueprint is organised. */
+const OWNER_GROUPS: Group[] = [
+  { key: "overview", label: "Overview", pages: [{ key: "overview", href: "/overview", label: "Overview" }] },
+  { key: "growth", label: "Growth", pages: [
+    { key: "leads", href: "/leads", label: "Leads" }, { key: "ads", href: "/ads", label: "Ads" }, { key: "sales", href: "/sales", label: "Sales & quotes" }] },
+  { key: "operations", label: "Operations", pages: [
+    { key: "crews", href: "/crews", label: "Crew economics" }, { key: "quality", href: "/quality", label: "Quality" }] },
+  { key: "revenue", label: "Revenue", pages: [
+    { key: "plans", href: "/plans", label: "Plans" }, { key: "upsells", href: "/upsells", label: "Upsells" }, { key: "customers", href: "/customers", label: "Customers" }] },
+  { key: "financial", label: "Financial", pages: [{ key: "financial", href: "/financial", label: "Financial" }] },
+  { key: "team", label: "Team", pages: [{ key: "team", href: "/team", label: "Team" }] },
+  { key: "me", label: "My stats", pages: [{ key: "me", href: "/me", label: "My stats" }] },
+];
+const CREW_GROUPS: Group[] = [{ key: "me", label: "My stats", pages: [{ key: "me", href: "/me", label: "My stats" }] }];
 
 /** Gate for a page: signed in, set up by an owner, and allowed this page. */
 export async function requireSession(allow: Role[]): Promise<Session & { role: Role }> {
@@ -17,16 +33,15 @@ export async function requireSession(allow: Role[]): Promise<Session & { role: R
 export async function Shell({ page, session, children }: { page: Page; session: Session & { role: Role }; children: React.ReactNode }) {
   const fresh = await getFreshness();
   const stale = !fresh.healthy || !fresh.last_synced || Date.now() - new Date(fresh.last_synced).getTime() > 60 * 60_000;
-  const links: { href: string; key: Page; label: string }[] = session.role === "owner"
-    ? [{ href: "/overview", key: "overview", label: "Overview" }, { href: "/leads", key: "leads", label: "Leads" }, { href: "/ads", key: "ads", label: "Ads" }, { href: "/plans", key: "plans", label: "Plans" }, { href: "/team", key: "team", label: "Team" }, { href: "/me", key: "me", label: "My stats" }]
-    : [{ href: "/me", key: "me", label: "My stats" }];
+  const groups = session.role === "owner" ? OWNER_GROUPS : CREW_GROUPS;
+  const current = groups.find((g) => g.pages.some((p) => p.key === page));
 
   return (
     <div className="shell">
       <header className="topbar">
         <Link href="/" className="wordmark">ABOVE</Link>
         <nav className="nav" aria-label="Main">
-          {links.map((l) => <Link key={l.key} href={l.href} aria-current={l.key === page ? "page" : undefined}>{l.label}</Link>)}
+          {groups.map((g) => <Link key={g.key} href={g.pages[0].href} aria-current={g === current ? "page" : undefined}>{g.label}</Link>)}
         </nav>
         <div className="topbar-end small muted">
           <span className="fresh" title={fresh.last_synced ? new Date(fresh.last_synced).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : ""}>
@@ -36,6 +51,11 @@ export async function Shell({ page, session, children }: { page: Page; session: 
           <form action="/auth/signout" method="post"><button className="linkbtn">Sign out</button></form>
         </div>
       </header>
+      {current && current.pages.length > 1 && (
+        <nav className="subnav" aria-label={`${current.label} pages`}>
+          {current.pages.map((p) => <Link key={p.key} href={p.href} aria-current={p.key === page ? "page" : undefined}>{p.label}</Link>)}
+        </nav>
+      )}
       {children}
     </div>
   );

@@ -763,4 +763,32 @@ do $$ declare o jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Growth: lead measures, ad attribution, sales & quotes ----------
+insert into public.quotes (id, client_id, salesperson_id, status, subtotal, discount_amount, total, created_at, sent_at, approved_at) values
+ ('QS1', 'C2', '11111111-0000-0000-0000-00000000000a', 'converted', 500, 0, 540, '2026-08-03', '2026-08-03 18:00Z', '2026-08-04 18:00Z'),
+ ('QS2', 'C2', '11111111-0000-0000-0000-00000000000a', 'archived', 800, 80, 777, '2026-08-05', '2026-08-05 18:00Z', null),
+ ('QS3', 'C2', null, 'awaiting_response', 300, 0, 324, '2026-08-10', '2026-08-10 18:00Z', null);
+insert into public.quote_line_items values ('QS1a','QS1','Gutter Cleaning',1,500,500,false,0),('QS2a','QS2','Roof Softwash',1,800,800,false,0),('QS3a','QS3','Windows',1,300,300,false,0);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_sales('2026-08-01','2026-08-31')$q$, 'crew cannot see sales numbers');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; l jsonb; a jsonb; begin
+  o := public.owner_sales('2026-08-01','2026-08-31');
+  assert (o->>'sent')::int = 3 and (o->>'approved')::int = 1 and (o->>'approved_value')::numeric = 500, format('sales %s', o);
+  assert (o->>'lost')::int = 1 and (o->>'lost_value')::numeric = 720, format('lost %s', o);
+  assert (o->'discount'->>'rate')::numeric = 0.05 and (o->'discount'->>'with_discount_sent')::int = 1
+     and (o->'discount'->>'without_discount_won')::int = 1, format('discount %s', o->'discount');
+  assert (o->'by_salesperson'->0->>'name') = 'Kale (test)' and (o->'by_salesperson'->0->>'approved_value')::numeric = 500, format('by salesperson %s', o->'by_salesperson');
+  l := public.owner_leads('2026-12-01','2026-12-31');
+  assert (l->>'unworked')::int = 1 and (l->>'two_way')::int = 6, format('contact %s / %s', l->>'unworked', l->>'two_way');
+  assert (l->>'lead_to_booking_days')::numeric = 4.0 and (l->>'touches_before_booking')::numeric = 1, format('lead to booking %s %s', l->>'lead_to_booking_days', l->>'touches_before_booking');
+  a := public.owner_ads('2026-12-01','2026-12-31')->'attributed';
+  assert (a->>'form_leads')::int = 5 and (a->>'booked')::int = 0, format('attributed %s', a);
+  raise notice 'ok  growth: sales & quotes, lead contact measures, ad attribution';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

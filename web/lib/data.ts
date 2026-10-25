@@ -203,6 +203,9 @@ export type LeadKpis = {
   follow_up: { fu1_due: number; fu1_done: number; fu2_due: number; fu2_done: number; followed_up: number;
     followed_up_replied: number; followed_up_booked: number; followed_up_matched: number };
   follow_ups_due_now: number; not_converted: number; got_both_follow_ups: number;
+  contact_rate: number | null; two_way: number; avg_attempts: number | null; unworked: number; median_first_any_min: number | null;
+  lead_to_booking_days: number | null; touches_before_booking: number | null;
+  by_zip: { zip: string; leads: number; booked: number; revenue: number; revenue_per_lead: number }[];
   quote_speed: { quoted: number; avg_hours: number | null; median_hours: number | null; fast_quoted: number; fast_booked: number; slow_quoted: number; slow_booked: number };
   median_response_min: number | null; median_response_min_in_hours: number | null; within_5_min: number | null;
   quoted: number; booked: number; booked_value: number;
@@ -242,6 +245,7 @@ export async function getQuoFreshness(): Promise<QuoFreshness> {
 export type AdsKpis = {
   spend: number; impressions: number; link_clicks: number; clicks: number; meta_leads: number; days_with_spend: number;
   form_leads: number; new_customers: number; new_customer_value: number;
+  attributed: { form_leads: number; matched: number; quoted: number; booked: number; booked_value: number; realized_revenue: number };
   campaigns: { campaign_id: string; name: string | null; spend: number; impressions: number; link_clicks: number; leads: number; first_day: string; last_day: string }[];
   monthly: { month: string; spend: number; leads: number; new_customers: number; new_value: number }[];
 };
@@ -253,4 +257,20 @@ export async function getMetaFreshness(): Promise<QuoFreshness> {
   if (isDemo()) return { last_synced: new Date(Date.now() - 20 * 60_000).toISOString(), healthy: true, connected: true };
   const rows = await rpc<any[]>("meta_freshness");
   return rows?.[0] ?? { last_synced: null, healthy: true, connected: false };
+}
+
+// ---------- sales & quotes (owners) ----------
+export type SalesKpis = {
+  sent: number; sent_value: number; approved: number; approved_value: number; avg_approved_value: number | null;
+  days_to_approve: number | null; lost: number; lost_value: number;
+  waiting: { count: number; value: number; d0_7: number; d8_30: number; d31_plus: number };
+  discount: { pre_discount: number; discount: number; plan_discount: number; rate: number | null;
+    with_discount_sent: number; with_discount_won: number; without_discount_sent: number; without_discount_won: number };
+  follow_up: { needed: number; followed_up: number; no_phone: number };
+  by_salesperson: { name: string; sent: number; approved: number; approved_value: number }[];
+  to_follow_up: { id: string; client_name: string | null; client_id: string | null; value: number; sent_at: string; days_waiting: number; last_contact: string | null }[];
+};
+export async function getSales(from: string, to: string): Promise<SalesKpis> {
+  if (isDemo()) return demo.sales();
+  return await rpc<SalesKpis>("owner_sales", { p_from: from, p_to: to });
 }

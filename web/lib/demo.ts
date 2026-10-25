@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -180,6 +180,8 @@ export function leadKpis(): LeadKpis {
     leads: 27, responded: 23, no_reply: 2, waiting_on_them: 2, timed_leads: 25,
     follow_up: { fu1_due: 9, fu1_done: 7, fu2_due: 5, fu2_done: 3, followed_up: 7, followed_up_replied: 4, followed_up_booked: 2, followed_up_matched: 6 },
     follow_ups_due_now: 2, not_converted: 2, got_both_follow_ups: 3,
+    contact_rate: 0.81, two_way: 22, avg_attempts: 1.4, unworked: 1, median_first_any_min: 2, lead_to_booking_days: 3.5, touches_before_booking: 4.2,
+    by_zip: [{ zip: "98513", leads: 6, booked: 3, revenue: 2140, revenue_per_lead: 356.67 }, { zip: "98516", leads: 5, booked: 2, revenue: 1310, revenue_per_lead: 262 }, { zip: "98502", leads: 3, booked: 1, revenue: 450, revenue_per_lead: 150 }],
     quote_speed: { quoted: 15, avg_hours: 21.4, median_hours: 6.5, fast_quoted: 11, fast_booked: 7, slow_quoted: 4, slow_booked: 1 }, median_response_min: 6.5, median_response_min_in_hours: 3, within_5_min: 0.44,
     quoted: 17, booked: 9, booked_value: 8640,
     speed_booking: { fast_leads: 12, fast_booked: 6, slow_leads: 13, slow_booked: 3, matched_leads: 18 },
@@ -225,6 +227,7 @@ export function ads(): AdsKpis {
   return {
     spend: 920, impressions: 61240, link_clicks: 1184, clicks: 1610, meta_leads: 38, days_with_spend: 24,
     form_leads: 33, new_customers: 22, new_customer_value: 17350,
+    attributed: { form_leads: 33, matched: 21, quoted: 14, booked: 8, booked_value: 6240, realized_revenue: 3980 },
     campaigns: [
       { campaign_id: "1", name: "Christmas lights 2026", spend: 540, impressions: 38200, link_clicks: 702, leads: 24, first_day: "2026-10-01", last_day: "2026-10-24" },
       { campaign_id: "2", name: "Roof softwash", spend: 310, impressions: 19800, link_clicks: 401, leads: 12, first_day: "2026-10-01", last_day: "2026-10-24" },
@@ -233,3 +236,16 @@ export function ads(): AdsKpis {
     monthly,
   };
 }
+
+export const sales = (): SalesKpis => ({
+  sent: 64, sent_value: 58210, approved: 29, approved_value: 24870, avg_approved_value: 857.6, days_to_approve: 1.5, lost: 9, lost_value: 8420,
+  waiting: { count: 31, value: 27390, d0_7: 9840, d8_30: 8150, d31_plus: 9400 },
+  discount: { pre_discount: 61300, discount: 3090, plan_discount: 1650, rate: 0.05, with_discount_sent: 18, with_discount_won: 11, without_discount_sent: 46, without_discount_won: 18 },
+  follow_up: { needed: 22, followed_up: 15, no_phone: 9 },
+  by_salesperson: [{ name: "Sample Owner", sent: 41, approved: 19, approved_value: 16020 }, { name: "Second Owner", sent: 23, approved: 10, approved_value: 8850 }],
+  to_follow_up: [
+    { id: "q1", client_name: "Sample Customer J", client_id: null, value: 6740, sent_at: "2026-10-22T01:30:00Z", days_waiting: 3, last_contact: null },
+    { id: "q2", client_name: "Sample Customer K", client_id: null, value: 1507, sent_at: "2026-10-20T16:26:00Z", days_waiting: 5, last_contact: "2026-10-23T18:00:00Z" },
+    { id: "q3", client_name: "Sample Customer L", client_id: null, value: 864, sent_at: "2026-10-12T01:13:00Z", days_waiting: 13, last_contact: null },
+  ],
+});
