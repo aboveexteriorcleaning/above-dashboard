@@ -202,6 +202,7 @@ export type LeadKpis = {
   leads: number; responded: number; no_reply: number;
   median_response_min: number | null; median_response_min_in_hours: number | null; within_5_min: number | null;
   quoted: number; booked: number; booked_value: number;
+  new_quoted: number; new_quoted_booked: number; new_quoted_no_phone: number; new_booked: number; new_booked_value: number;
   by_source: { source: string; leads: number; booked: number; booked_value: number }[];
   by_line: { line: string; leads: number; booked: number }[];
   missed: { missed: number; inbound_calls: number; voicemails: number; returned: number; not_returned: number; median_return_min: number | null };

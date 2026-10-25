@@ -102,7 +102,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
       <p className="muted small" style={{ maxWidth: "75ch" }}>
         A lead is a phone number you&rsquo;d never dealt with, that wasn&rsquo;t already a customer, and that texted in, called (20 seconds or more, or left a voicemail),
         or got the automatic form-lead text. First reply is the first time a person called or texted back, or picked up their call; the automatic text doesn&rsquo;t count.
-        Quoted and booked come from Jobber, matched by phone number, within 60 and 90 days.
+        In this list, quoted and booked come from Jobber by matching the lead&rsquo;s phone number (within 60 and 90 days), so leads with no phone on their Jobber profile show as not quoted.
       </p>
     </div>
   );

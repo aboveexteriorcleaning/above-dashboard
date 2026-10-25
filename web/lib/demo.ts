@@ -179,6 +179,7 @@ export function leadKpis(): LeadKpis {
   return {
     leads: 27, responded: 25, no_reply: 2, median_response_min: 6.5, median_response_min_in_hours: 3, within_5_min: 0.44,
     quoted: 17, booked: 9, booked_value: 8640,
+    new_quoted: 41, new_quoted_booked: 19, new_quoted_no_phone: 12, new_booked: 22, new_booked_value: 17350,
     by_source: [
       { source: "Called in", leads: 12, booked: 5, booked_value: 4890 },
       { source: "Form (auto-text)", leads: 9, booked: 2, booked_value: 1650 },

@@ -558,12 +558,12 @@ insert into public.properties (id,client_id,street) values ('P30','C30','4 Retur
   ('P31','C31','5 Plan St'),('P33','C33','6 New St'),('P34','C34','7 Sold St');
 insert into public.jobs (id,client_id,property_id,title,status,total,created_at,start_at,completed_at) values
  ('R1','C30','P30','Windows','archived',300,'2026-09-01','2026-09-05','2026-09-05 20:00Z'),
- ('R2','C32','P32','Roof','archived',800,'2026-11-01','2026-11-05','2026-11-05 20:00Z'),  -- other service, other record
+ ('R2','C32','P32','Roof','archived',800,'2026-11-02 18:00Z','2026-11-05','2026-11-05 20:00Z'),  -- other service, other record
  ('R3','C31','P31','Windows','archived',350,'2026-05-01','2026-05-10','2026-05-10 20:00Z'),
  ('R4','C31','P31','Windows','archived',350,'2026-05-10','2026-11-06','2026-11-06 20:00Z'),
- ('R5','C33','P33','Gutters','archived',250,'2026-11-01','2026-11-07','2026-11-07 20:00Z'),
+ ('R5','C33','P33','Gutters','archived',250,'2026-11-02 18:00Z','2026-11-07','2026-11-07 20:00Z'),
  ('R6','C34','P34','Windows','archived',300,'2026-07-25','2026-08-01','2026-08-01 20:00Z'),
- ('R7','C34','P34','Windows','archived',350,'2026-11-01','2026-11-08','2026-11-08 20:00Z');
+ ('R7','C34','P34','Windows','archived',350,'2026-11-02 18:00Z','2026-11-08','2026-11-08 20:00Z');
 insert into public.job_line_items (id,job_id,product_name,total_price,created_at) values
  ('RL3','R3','Biannual Window Cleaning Plan',-50,'2026-05-01'),
  ('RL4','R4','Biannual Window Cleaning Plan',-50,'2026-05-10'),
@@ -577,6 +577,10 @@ do $$ declare c jsonb; begin
   assert (c->>'returning_own')::int = 2 and (c->>'returning_plan')::int = 1 and (c->>'returning')::int = 3, format('returning %s', c);
   assert (select new_clients from public.company_summary('2026-11-01','2026-11-30')) = 1, 'crew new customers by address';
   raise notice 'ok  customers: by address; returning split into on their own vs plan visits';
+  -- November new-customer bookings from Jobber: only 6 New St. 4 Return St is a returning home on a
+  -- duplicate client record, and 7 Sold St had a job in August.
+  assert (public.owner_leads('2026-11-01','2026-11-30')->>'new_booked')::int = 1, 'new customers booked from Jobber';
+  assert (public.owner_leads('2026-11-01','2026-11-30')->>'new_quoted')::int = 0, 'no new quotes in November';
 end $$;
 reset role;
 
@@ -626,6 +630,9 @@ do $$ declare o jsonb; p jsonb; begin
   assert (o->>'median_response_min')::numeric = 11.5, format('median %s', o->>'median_response_min');  -- 0, 3, 20, 30
   assert (o->>'within_5_min')::numeric = 0.4, format('within 5 %s', o->>'within_5_min');
   assert (o->>'quoted')::int = 1 and (o->>'booked')::int = 1 and (o->>'booked_value')::numeric = 500, format('funnel %s', o);
+  -- Jobber-side: CA (first quote Dec 2, first job Dec 5) is a new customer quoted and booked in December
+  assert (o->>'new_quoted')::int = 1 and (o->>'new_booked')::int = 1 and (o->>'new_booked_value')::numeric = 500
+     and (o->>'new_quoted_booked')::int = 1 and (o->>'new_quoted_no_phone')::int = 0, format('jobber funnel %s', o);
   assert (o->'missed'->>'missed')::int = 2 and (o->'missed'->>'inbound_calls')::int = 4
      and (o->'missed'->>'returned')::int = 1 and (o->'missed'->>'not_returned')::int = 1
      and (o->'missed'->>'median_return_min')::numeric = 20, format('missed %s', o->'missed');

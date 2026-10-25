@@ -57,13 +57,14 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
         )}
 
         <section aria-labelledby="leads-h">
-          <div className="section-head"><h2 id="leads-h">New leads</h2></div>
+          <div className="section-head"><h2 id="leads-h">New leads</h2><span className="muted small">Leads and reply speed from Quo; quotes and bookings from Jobber, every channel</span></div>
           <div className="stats">
             <Stat value={n(k.leads)} label="New leads" note={k.by_source.slice(0, 3).map((s) => `${s.leads} ${s.source.toLowerCase()}`).join(", ") || undefined} />
             <Stat value={minutes(k.median_response_min)} label="Speed to lead"
               note={`Median first reply${k.within_5_min != null ? `; ${pct(k.within_5_min)} within 5 min` : ""}${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads between 7am and 7pm` : ""}`} />
-            <Stat value={pct(k.leads ? k.quoted / k.leads : null)} label="Got a quote" note={`${n(k.quoted)} of ${n(k.leads)} leads`} />
-            <Stat value={pct(k.leads ? k.booked / k.leads : null)} label="Booked" note={`${n(k.booked)} leads, ${money(k.booked_value)} of work`} />
+            <Stat value={n(k.new_quoted)} label="Got a quote"
+              note={`New customers' first quote${k.new_quoted ? `; ${pct(k.new_quoted_booked / k.new_quoted)} have booked since` : ""}`} />
+            <Stat value={n(k.new_booked)} label="Booked" note={`New customers' first job, ${money(k.new_booked_value)} of work`} />
           </div>
         </section>
 
@@ -79,7 +80,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
 
         <div className="grid-2 section">
           <section aria-labelledby="month-h">
-            <div className="section-head"><h2 id="month-h">Leads by month</h2><span className="muted small">Last 12 months</span></div>
+            <div className="section-head"><h2 id="month-h">Leads by month</h2><span className="muted small">Quoted and booked: new customers, from Jobber</span></div>
             <table className="rows">
               <thead><tr><th>Month</th><th className="num">Leads</th><th className="num">Quoted</th><th className="num">Booked</th><th className="barcell hide-sm" aria-hidden /></tr></thead>
               <tbody>
@@ -97,12 +98,13 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
               <div className="section-head"><h2 id="src-h">How leads came in</h2></div>
               {k.by_source.length ? (
                 <table className="rows">
-                  <thead><tr><th>Source</th><th className="num">Leads</th><th className="num">Booked</th><th className="num">Work booked</th></tr></thead>
+                  <thead><tr><th>Source</th><th className="num">Leads</th><th className="num">Booked*</th><th className="num">Work booked*</th></tr></thead>
                   <tbody>{k.by_source.map((s) => (
                     <tr key={s.source}><td>{s.source}</td><td className="num">{n(s.leads)}</td><td className="num">{n(s.booked)}</td><td className="num">{money(s.booked_value)}</td></tr>
                   ))}</tbody>
                 </table>
               ) : <p className="muted">No new leads in this period.</p>}
+              <p className="muted small">*Only leads whose phone number matches a Jobber client.{k.new_quoted_no_phone ? ` ${n(k.new_quoted_no_phone)} of this period's ${n(k.new_quoted)} quoted new customers have no phone in Jobber, so they can't be matched.` : ""}</p>
             </section>
             {k.by_line.length > 1 && (
               <section className="section" aria-labelledby="line-h">
