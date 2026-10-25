@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamMember, TeamScore, TrendRow } from "./data";
+import type { CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -85,9 +85,29 @@ export const teamScores = (): TeamScore[] => [
 ];
 
 export const team = (): TeamMember[] => [
-  { id: "3", full_name: "Owner A", email: "owner.a@example.com", role: "owner", active: true, jobber_user_id: "U3", signed_in: true, hourly_cost: null, tracks_time: false },
-  { id: "4", full_name: "Owner B", email: "owner.b@example.com", role: "owner", active: true, jobber_user_id: "U4", signed_in: false, hourly_cost: null, tracks_time: false },
-  { id: "1", full_name: "Crew member A", email: "crew.a@example.com", role: "crew", active: true, jobber_user_id: "U1", signed_in: true, hourly_cost: 28, tracks_time: true },
-  { id: "2", full_name: "Crew member B", email: null, role: "crew", active: true, jobber_user_id: "U2", signed_in: false, hourly_cost: 27, tracks_time: true },
-  { id: "5", full_name: "Seasonal helper", email: null, role: "crew", active: false, jobber_user_id: "U5", signed_in: false, hourly_cost: null, tracks_time: true },
+  { id: "3", full_name: "Owner A", email: "owner.a@example.com", role: "owner", active: true, jobber_user_id: "U3", signed_in: true, hourly_cost: null, tracks_time: false, base_wage: null },
+  { id: "4", full_name: "Owner B", email: "owner.b@example.com", role: "owner", active: true, jobber_user_id: "U4", signed_in: false, hourly_cost: null, tracks_time: false, base_wage: null },
+  { id: "1", full_name: "Crew member A", email: "crew.a@example.com", role: "crew", active: true, jobber_user_id: "U1", signed_in: true, hourly_cost: 28, tracks_time: true, base_wage: 20 },
+  { id: "2", full_name: "Crew member B", email: null, role: "crew", active: true, jobber_user_id: "U2", signed_in: false, hourly_cost: 27, tracks_time: true, base_wage: 20 },
+  { id: "5", full_name: "Seasonal helper", email: null, role: "crew", active: false, jobber_user_id: "U5", signed_in: false, hourly_cost: null, tracks_time: true, base_wage: 20 },
+];
+
+export function commission(): { summary: CommissionSummary; days: CommissionDay[] } {
+  const raw: [string, number, number, number, number][] = [ // day, jobs, value, commission, hours
+    ["2026-10-23", 2, 1249, 187.35, 8.5], ["2026-10-22", 1, 1030, 154.5, 6.0], ["2026-10-21", 2, 1300, 195, 9.5],
+    ["2026-10-20", 1, 548, 82.2, 5.5], ["2026-10-17", 1, 900, 135, 7.0], ["2026-10-16", 2, 1610, 241.5, 10.0],
+    ["2026-10-15", 1, 450, 90, 6.5], ["2026-10-14", 2, 1840, 276, 9.0],
+  ];
+  const days = raw.map(([day, jobs, v, c, h]) => ({
+    day, jobs, job_value: v, commission: c, hours: h, wage: 20, hourly_pay: h * 20,
+    break_even_hours: Math.round((c / 20) * 100) / 100, commission_day: c >= h * 20,
+  }));
+  const hit = days.filter((d) => d.commission_day);
+  return { days, summary: { commission_earned: hit.reduce((a, d) => a + d.commission, 0), commission_days: hit.length,
+    work_days: days.length, commission_if_all: days.reduce((a, d) => a + d.commission, 0), missing_wage: false } };
+}
+export const today = (): Today => ({ jobs: 2, job_value: 1500, commission: 225, wage: 20, break_even_hours: 11.25, hours_so_far: 4.5 });
+export const teamCommission = (): TeamCommission[] => [
+  { employee_id: "1", full_name: "Crew member A", commission_earned: 1149.35, commission_days: 6, work_days: 8, missing_wage: false },
+  { employee_id: "2", full_name: "Crew member B", commission_earned: 640.5, commission_days: 4, work_days: 8, missing_wage: false },
 ];

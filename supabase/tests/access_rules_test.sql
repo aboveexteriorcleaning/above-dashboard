@@ -284,4 +284,87 @@ do $$ declare j record; begin
 end $$;
 reset role;
 
+
+-- ================= COMMISSION vs HOURLY =================
+-- Wages: Connor $20, Sage $21.
+insert into public.employee_wages values
+  ('11111111-0000-0000-0000-00000000000c','2026-01-01',20),
+  ('11111111-0000-0000-0000-00000000000d','2026-01-01',21);
+-- Sep 15: J10 (from the test above) = $800, Kale + Connor (2 people) -> 15% each = $120.
+--         Connor clocked 4h x $20 = $80 -> commission day. Break-even 6.0h.
+-- Sep 16: J11 = $500 solo Sage -> 20% = $100. Sage clocked 6h x $21 = $126 -> hourly day.
+-- Sep 17: J12 = $1000, Connor + Sage + Kale (3) -> 10% each = $100.
+--         Connor 3h x $20 = $60 -> commission; Sage 6h x $21 = $126 -> hourly.
+insert into public.jobs (id,client_id,title,status,total,created_at,completed_at) values
+  ('J11','C2','Solo (test)','archived',500,'2026-09-10 18:00Z','2026-09-18 22:00Z'),   -- marked complete 2 days late
+  ('J12','C1','Three-person (test)','archived',1000,'2026-09-10 18:00Z','2026-09-17 23:00Z');
+insert into public.job_line_items (id,job_id,product_name,total_price) values
+  ('L11','J11','Exterior Window Cleaning',500), ('L12','J12','Softwash Siding Cleaning',1000);
+insert into public.visits (id,job_id,status,start_at,end_at) values
+  ('V12','J11','completed','2026-09-16 16:00Z','2026-09-16 22:00Z'),
+  ('V13','J12','completed','2026-09-17 16:00Z','2026-09-17 19:00Z');
+insert into public.visit_assignments values
+  ('V12','11111111-0000-0000-0000-00000000000d'),
+  ('V13','11111111-0000-0000-0000-00000000000c'),('V13','11111111-0000-0000-0000-00000000000d'),
+  ('V13','11111111-0000-0000-0000-00000000000a');
+insert into public.timesheet_entries (id,employee_id,started_at,ended_at,minutes) values      -- day clock-ins, no job
+  ('T12','11111111-0000-0000-0000-00000000000d','2026-09-16 15:00Z','2026-09-16 21:00Z',360),
+  ('T13','11111111-0000-0000-0000-00000000000c','2026-09-17 16:00Z','2026-09-17 19:00Z',180),
+  ('T14','11111111-0000-0000-0000-00000000000d','2026-09-17 15:00Z','2026-09-17 21:00Z',360);
+
+-- Connor sees his own days; not wages tables, not team commission.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+set request.jwt.claims = '{"email":"connor@example.com"}';
+do $$ declare d record; s record; n int; begin
+  select * into d from public.my_commission_days('2026-09-01','2026-09-30') where day = '2026-09-15';
+  assert d.commission = 120 and d.hourly_pay = 80 and d.break_even_hours = 6 and d.commission_day,
+    format('connor sep 15 %s', row_to_json(d));
+  select * into d from public.my_commission_days('2026-09-01','2026-09-30') where day = '2026-09-17';
+  assert d.commission = 100 and d.hourly_pay = 60 and d.commission_day, format('connor sep 17 %s', row_to_json(d));
+  select * into s from public.my_commission_summary('2026-09-01','2026-09-30');
+  assert s.commission_earned = 220 and s.commission_days = 2 and s.work_days = 2 and not s.missing_wage,
+    format('connor summary %s', row_to_json(s));
+  select count(*) into n from public.employee_wages; assert n = 0, 'crew can see wages';
+  select count(*) into n from public.commission_rates; assert n = 0, 'crew can read rate table directly';
+  raise notice 'ok  Connor: 2-person and 3-person commission days, own summary only';
+end $$;
+select pg_temp.expect_fail('select * from public.team_commission(''2026-09-01'',''2026-09-30'')', 'crew -> team commission');
+select pg_temp.expect_fail('select * from app.commission_days(''11111111-0000-0000-0000-00000000000d'',''2026-09-01'',''2026-09-30'')', 'crew -> Sage commission via internal fn');
+reset role;
+
+-- Sage: solo job counts on the visit day (Sep 16) even though it was marked complete Sep 18.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+do $$ declare d record; s record; begin
+  select * into d from public.my_commission_days('2026-09-01','2026-09-30') where day = '2026-09-16';
+  assert d.jobs = 1 and d.commission = 100 and d.hourly_pay = 126 and not d.commission_day,
+    format('sage sep 16 %s', row_to_json(d));
+  select * into s from public.my_commission_summary('2026-09-01','2026-09-30');
+  assert s.commission_earned = 0 and s.commission_days = 0 and s.work_days = 2, format('sage summary %s', row_to_json(s));
+  raise notice 'ok  Sage: solo 20%% and 3-person 10%% both lose to hourly; job counted on visit day';
+end $$;
+reset role;
+
+-- Owners see everyone who clocks in (not owners); missing wage is flagged, not guessed.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare n int; c record; begin
+  select count(*) into n from public.team_commission('2026-09-01','2026-09-30') where full_name like 'Kale%';
+  assert n = 0, 'owners should not appear in commission (they do not clock in)';
+  select * into c from public.team_commission('2026-09-01','2026-09-30') where full_name = 'Connor (test)';
+  assert c.commission_earned = 220 and c.commission_days = 2, format('team connor %s', row_to_json(c));
+  raise notice 'ok  owners: team commission view';
+end $$;
+reset role;
+delete from public.employee_wages where employee_id = '11111111-0000-0000-0000-00000000000d';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+do $$ declare s record; begin
+  select * into s from public.my_commission_summary('2026-09-01','2026-09-30');
+  assert s.missing_wage and s.commission_days = 0, 'no wage -> flagged, never counted as a commission day';
+  raise notice 'ok  missing wage is flagged';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

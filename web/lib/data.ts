@@ -36,8 +36,17 @@ export type CompanySummary = { completed_revenue: number; completed_jobs: number
   booked_next_30_days: number; active_plans: number };
 export type TeamScore = Scorecard & { employee_id: string; full_name: string };
 export type TeamMember = { id: string; full_name: string; email: string | null; role: Role; active: boolean;
-  jobber_user_id: string | null; signed_in: boolean; hourly_cost: number | null; tracks_time: boolean };
+  jobber_user_id: string | null; signed_in: boolean; hourly_cost: number | null; tracks_time: boolean;
+  base_wage: number | null };
 export type Freshness = { last_synced: string | null; healthy: boolean };
+export type CommissionDay = { day: string; jobs: number; job_value: number; commission: number; hours: number;
+  wage: number | null; hourly_pay: number | null; break_even_hours: number | null; commission_day: boolean };
+export type CommissionSummary = { commission_earned: number; commission_days: number; work_days: number;
+  commission_if_all: number; missing_wage: boolean | null };
+export type Today = { jobs: number; job_value: number; commission: number; wage: number | null;
+  break_even_hours: number | null; hours_so_far: number };
+export type TeamCommission = { employee_id: string; full_name: string; commission_earned: number;
+  commission_days: number; work_days: number; missing_wage: boolean | null };
 
 // numeric columns arrive as strings from Postgres; make them numbers
 const numify = <T,>(row: any): T => {
@@ -88,9 +97,13 @@ export async function getTeam(): Promise<TeamMember[]> {
   if (error) throw new Error(error.message);
   const { data: costs } = await sb.from("employee_costs").select("employee_id, effective_from, hourly_cost")
     .order("effective_from", { ascending: false });
+  const { data: wages } = await sb.from("employee_wages").select("employee_id, effective_from, hourly_wage")
+    .order("effective_from", { ascending: false });
   return (emps ?? []).map((e: any) => ({
     id: e.id, full_name: e.full_name, email: e.email, role: e.role, active: e.active,
     jobber_user_id: e.jobber_user_id, signed_in: !!e.auth_user_id, tracks_time: e.tracks_time !== false,
+    base_wage: wages?.find((w: any) => w.employee_id === e.id)?.hourly_wage != null
+      ? Number(wages!.find((w: any) => w.employee_id === e.id)!.hourly_wage) : null,
     hourly_cost: costs?.find((c: any) => c.employee_id === e.id)?.hourly_cost != null
       ? Number(costs!.find((c: any) => c.employee_id === e.id)!.hourly_cost) : null,
   }));
@@ -115,4 +128,23 @@ export async function getFreshness(): Promise<Freshness> {
   if (isDemo()) return { last_synced: new Date(Date.now() - 4 * 60_000).toISOString(), healthy: true };
   const rows = await rpc<any[]>("data_freshness");
   return rows?.[0] ?? { last_synced: null, healthy: false };
+}
+
+// ---------- commission ----------
+export async function getMyCommission(from: string, to: string): Promise<{ summary: CommissionSummary; days: CommissionDay[] }> {
+  if (isDemo()) return demo.commission();
+  const [sum, days] = await Promise.all([
+    rpc<any[]>("my_commission_summary", { p_from: from, p_to: to }),
+    rpc<any[]>("my_commission_days", { p_from: from, p_to: to }),
+  ]);
+  return { summary: numify<CommissionSummary>(sum[0]), days: days.map((d) => numify<CommissionDay>(d)) };
+}
+export async function getMyToday(): Promise<Today> {
+  if (isDemo()) return demo.today();
+  const rows = await rpc<any[]>("my_today");
+  return numify<Today>(rows[0]);
+}
+export async function getTeamCommission(from: string, to: string): Promise<TeamCommission[]> {
+  if (isDemo()) return demo.teamCommission();
+  return (await rpc<any[]>("team_commission", { p_from: from, p_to: to })).map((r) => numify<TeamCommission>(r));
 }

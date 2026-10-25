@@ -148,7 +148,7 @@ input, select {
 .btn.quiet { background: transparent; color: var(--glass); border: 1px solid var(--glass); }
 .notice { padding: 12px 14px; border-radius: var(--radius-s); background: var(--glass-soft); }
 .notice.warn { background: var(--cedar-soft); }
-.member { display: grid; grid-template-columns: 1.4fr 1.6fr 0.8fr 0.8fr auto; gap: 12px; align-items: end; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.member { display: grid; grid-template-columns: 1.3fr 1.5fr 0.9fr 0.6fr 0.6fr auto; gap: 12px; align-items: end; padding: 16px 0; border-bottom: 1px solid var(--rule); }
 @media (max-width: 860px) { .member { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- login ---------- */
@@ -160,3 +160,15 @@ input, select {
 .tag { display: inline-block; font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--glass-soft); color: var(--slate); }
 .tag.off { background: var(--cedar-soft); }
 .hide-sm { } @media (max-width: 640px) { .hide-sm { display: none; } }
+
+/* ---------- crew: today card ---------- */
+.today { background: var(--slate); color: var(--mist); border-radius: var(--radius-l); padding: 22px 24px; margin-bottom: 32px; }
+.today h2 { font-size: 1rem; color: color-mix(in srgb, var(--mist) 75%, transparent); }
+.today-line { margin: 8px 0 6px; font-size: 1.05rem; }
+.today-goal { font-size: clamp(1.8rem, 6vw, 2.6rem); margin: 6px 0 6px; color: #fff; }
+.today .muted { color: color-mix(in srgb, var(--mist) 70%, transparent); }
+@media (prefers-color-scheme: dark) {
+  .today { background: var(--glass-soft); color: var(--slate); }
+  .today h2, .today .muted { color: var(--slate-2); }
+  .today-goal { color: var(--slate); }
+}

@@ -21,6 +21,9 @@ export async function saveMember(form: FormData) {
   const role = form.get("role") === "owner" ? "owner" : "crew";
   const active = form.get("active") === "on";
   const tracks_time = form.get("tracks_time") === "on";
+  const wageRaw = String(form.get("base_wage") ?? "").trim();
+  const wage = wageRaw === "" ? null : Number(wageRaw);
+  if (wage != null && (!Number.isFinite(wage) || wage < 0 || wage > 200)) back(`${name}: base wage should be between 0 and 200.`, "warn");
   const costRaw = String(form.get("hourly_cost") ?? "").trim();
   const cost = costRaw === "" ? null : Number(costRaw);
   if (cost != null && (!Number.isFinite(cost) || cost < 0 || cost > 500)) back(`${name}: hourly cost should be between 0 and 500.`, "warn");
@@ -33,6 +36,20 @@ export async function saveMember(form: FormData) {
       : /employees_email_key|duplicate/i.test(error.message) ? "That email is already on another profile."
       : `Couldn't save ${name}.`;
     back(m, "warn");
+  }
+  const t0 = pacificToday();
+  const todayIso = `${t0.y}-${String(t0.m).padStart(2, "0")}-${String(t0.d).padStart(2, "0")}`;
+  if (wage != null) {
+    // Wages are dated. A change starts today, so earlier days keep the wage that applied then.
+    const { data: cur } = await sb.from("employee_wages").select("hourly_wage").eq("employee_id", id)
+      .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+    if (!cur || Number(cur.hourly_wage) !== wage) {
+      // First wage ever entered applies to all past days too, so history is comparable.
+      const from = cur ? todayIso : "2020-01-01";
+      const { error: ew } = await sb.from("employee_wages")
+        .upsert({ employee_id: id, effective_from: from, hourly_wage: wage }, { onConflict: "employee_id,effective_from" });
+      if (ew) back(`Saved ${name}, but couldn't save the base wage.`, "warn");
+    }
   }
   if (cost != null) {
     const t = pacificToday();

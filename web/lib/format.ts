@@ -17,6 +17,14 @@ export function moneyShort(v: number | null | undefined) {
   return usd0.format(v);
 }
 
+/** 11.25 -> "11 hr 15 min" (exact, for goals people watch). */
+export function hm(h: number | null | undefined) {
+  if (h == null) return "—";
+  const total = Math.round(h * 60);
+  const hh = Math.floor(total / 60), mm = total % 60;
+  return mm ? `${hh} hr ${mm} min` : `${hh} hr`;
+}
+
 export function hours(h: number | null | undefined) {
   if (h == null) return "—";
   if (h < 48) return `${num.format(h)} hr`;

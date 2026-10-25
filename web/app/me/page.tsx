@@ -1,9 +1,9 @@
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
-import { getCompanySummary, getMyJobs, getMyScorecard } from "@/lib/data";
+import { getCompanySummary, getMyCommission, getMyJobs, getMyScorecard, getMyToday } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
-import { money, moneyExact, n, pct, shortDate } from "@/lib/format";
+import { hm, money, moneyExact, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,9 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
     getMyScorecard(period.from, period.to), getMyJobs(period.from, period.to), getCompanySummary(period.from, period.to),
   ]);
   const first = session.name?.split(" ")[0];
+  // Commission vs hourly applies to people who clock in.
+  const clocks = me.hours_source === "clocked";
+  const [comm, today] = clocks ? await Promise.all([getMyCommission(period.from, period.to), getMyToday()]) : [null, null];
 
   return (
     <Shell page="me" session={session}>
@@ -24,6 +27,27 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <h1>{first ? `${first}'s numbers` : "My numbers"}</h1>
           <Periods current={period.key} base="/me" />
         </div>
+
+        {today && today.jobs > 0 && (
+          <section className="today" aria-labelledby="today-h">
+            <h2 id="today-h">Today</h2>
+            <p className="today-line">
+              {n(today.jobs)} {today.jobs === 1 ? "job" : "jobs"} worth <strong>{money(today.job_value)}</strong>
+              {" "}pays <strong>{moneyExact(today.commission)}</strong> commission.
+            </p>
+            {today.break_even_hours != null ? (
+              <>
+                <p className="today-goal figure">Finish in under {hm(today.break_even_hours)}</p>
+                <p className="muted small">
+                  to beat hourly. Clocked so far today: {hm(today.hours_so_far)}
+                  {today.hours_so_far < today.break_even_hours
+                    ? `, ${hm(today.break_even_hours - today.hours_so_far)} to go.`
+                    : ", past break-even, so hourly pays more today."}
+                </p>
+              </>
+            ) : <p className="muted small">Ask an owner to add your base wage to see your break-even time.</p>}
+          </section>
+        )}
 
         <section className="me-hero" aria-label="Your revenue">
           <div className="muted">Revenue from your completed jobs, {period.label.toLowerCase()}</div>
@@ -44,6 +68,46 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
             <Stat value={money(me.revenue_per_day)} label="Revenue per work day" />
           </div>
         </section>
+
+        {comm && (
+          <section className="section" aria-labelledby="comm-h">
+            <div className="section-head"><h2 id="comm-h">Commission</h2><span className="muted small">{period.label}</span></div>
+            {comm.summary.missing_wage && <p className="notice warn">Your base wage isn&rsquo;t set yet, so some days can&rsquo;t be compared. Ask an owner to add it on the Team page.</p>}
+            <div className="stats">
+              <Stat value={moneyExact(comm.summary.commission_earned)} label="Commission earned" note="On days commission beat hourly" />
+              <Stat value={`${n(comm.summary.commission_days)} of ${n(comm.summary.work_days)}`} label="Commission days"
+                note={comm.summary.work_days ? `${pct(comm.summary.commission_days / comm.summary.work_days)} of your work days` : undefined} />
+            </div>
+            {comm.days.length > 0 && (
+              <div style={{ overflowX: "auto", marginTop: 20 }}>
+                <table className="rows">
+                  <thead><tr>
+                    <th>Day</th><th className="num hide-sm">Job value</th><th className="num">Commission</th>
+                    <th className="num">Hours</th><th className="num hide-sm">Break-even</th><th className="num">Paid by</th>
+                  </tr></thead>
+                  <tbody>
+                    {comm.days.map((d) => (
+                      <tr key={d.day}>
+                        <td>{shortDate(d.day + "T12:00:00Z")}</td>
+                        <td className="num hide-sm">{money(d.job_value)}</td>
+                        <td className="num">{moneyExact(d.commission)}</td>
+                        <td className="num">{n(d.hours)}</td>
+                        <td className="num muted hide-sm">{d.break_even_hours != null ? hm(d.break_even_hours) : "—"}</td>
+                        <td className="num">{d.wage == null ? <span className="muted">No wage set</span>
+                          : d.commission_day ? <span className="tag">Commission</span> : <span className="muted">Hourly</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="muted small" style={{ maxWidth: "70ch" }}>
+              Each day you&rsquo;re paid the higher of commission (solo jobs 20%, two-person 15%, three or more 10% of the job&rsquo;s value)
+              or your hours clocked times your wage. Break-even is how long the day can take with commission still ahead.
+              These are estimates; your paycheck is the final word.
+            </p>
+          </section>
+        )}
 
         <section className="section" aria-label="Your sales">
           <div className="stats">
