@@ -6,6 +6,7 @@ project_id = "fmpbjesfoeupybflfrbd"
 #   jobber-oauth-callback -> one-time state + PKCE
 #   jobber-webhook        -> Jobber HMAC signature
 #   jobber-sync           -> SYNC_KEY header
+#   quo-sync              -> SYNC_KEY header
 [functions.jobber-connect]
 verify_jwt = false
 
@@ -16,4 +17,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.jobber-sync]
+verify_jwt = false
+
+[functions.quo-sync]
 verify_jwt = false

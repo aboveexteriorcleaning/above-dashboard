@@ -210,3 +210,4 @@ input, select {
 .sheet td:first-child { min-width: 210px; }
 .sheet td:nth-child(8) { min-width: 170px; }
 .sheet td:nth-child(2) { min-width: 120px; }
+.leads-sheet { min-width: 900px; }

@@ -33,6 +33,21 @@ Live KPI dashboard for Above Exterior Cleaning.
 Secrets (Supabase → Edge Functions → Secrets): `JOBBER_CLIENT_ID`, `JOBBER_CLIENT_SECRET`,
 `JOBBER_SETUP_KEY`, `SYNC_KEY`. Vault secret `sync_key` (same value as `SYNC_KEY`) for the scheduler.
 
+## Quo sync
+
+`supabase/functions/quo-sync` reads Quo calls and texts. Quo API keys can't be
+limited to reading, so `_shared/quo.ts` is the lock: it only sends GET requests,
+and only to `/calls`, `/messages`, `/users` and `/phone-numbers`. Nothing in this
+project sends texts, places calls, or changes anything in Quo.
+
+Message text is never stored. Each outgoing text is reduced to two short
+fingerprints, used only to recognise the automatic n8n text sent to new form
+leads (so it doesn't count as a reply).
+
+Setup: add the `QUO_API_KEY` secret in Supabase (Edge Functions → Secrets), deploy,
+then run Actions → Sync → `quo-check`, then `quo-backfill`. After the import
+finishes, the scheduler pulls new calls and texts every 5 minutes.
+
 ## Running the access tests locally
 ```
 psql -d testdb -f supabase/tests/supabase_stub.sql

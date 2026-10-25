@@ -1,4 +1,4 @@
-# Manually run the Jobber sync. GitHub → Actions → Sync → Run workflow.
+# Manually run the Jobber or Quo sync. GitHub → Actions → Sync → Run workflow.
 # Output is counts and field names only, never customer data.
 name: Sync
 
@@ -16,6 +16,10 @@ on:
           - finish           # confirm the history import is complete and switch on the 15-minute sync
           - incremental      # pull what changed since the last sync
           - refresh-jobs     # re-read every job from Jobber (e.g. after editing old jobs' crews); read-only
+          - quo-check        # confirm the Quo key works; reads one page of each list, saves nothing
+          - quo-backfill     # import the last 2 years of Quo calls and texts (read-only); turns on the 5-minute Quo sync
+          - quo-status       # Quo sync time and record counts (no customer details)
+          - quo-incremental  # pull new Quo calls and texts now
 
 permissions:
   contents: read
@@ -30,6 +34,7 @@ jobs:
     timeout-minutes: 60
     env:
       BASE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/jobber-sync
+      QUO: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/quo-sync
       SYNC_KEY: ${{ secrets.SYNC_KEY }}
     steps:
       - name: Run
@@ -37,7 +42,8 @@ jobs:
           set -euo pipefail
           call() {
             echo "::group::$1"
-            code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$BASE?$1" --max-time 400)
+            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; esac
+            code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$url" --max-time 400)
             cat out.json; echo; echo "::endgroup::"
             if [ "$code" != "200" ] || grep -q '"ok": false' out.json; then
               echo "::error::$1 failed (HTTP $code)"; exit 1
@@ -69,5 +75,14 @@ jobs:
                 grep -q '"done": true' out.json && break
                 call "mode=backfill&only=jobs"
                 if [ "$i" = 40 ]; then echo "::error::job refresh did not finish in 40 rounds"; exit 1; fi
+              done ;;
+            quo-check)       call "quo:mode=check" ;;
+            quo-status)      call "quo:mode=status" ;;
+            quo-incremental) call "quo:mode=incremental&force=1" ;;
+            quo-backfill)
+              for i in $(seq 1 60); do
+                call "quo:mode=backfill"
+                grep -q '"done": true' out.json && break
+                if [ "$i" = 60 ]; then echo "::error::Quo import did not finish in 60 rounds"; exit 1; fi
               done ;;
           esac

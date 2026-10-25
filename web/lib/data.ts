@@ -196,3 +196,37 @@ export async function getTeamPlanSales(from: string, to: string): Promise<TeamPl
   if (isDemo()) return demo.teamPlanSales();
   return (await rpc<any[]>("team_plan_sales", { p_from: from, p_to: to })).map((r) => numify<TeamPlanSales>(r));
 }
+
+// ---------- leads (Quo, owners) ----------
+export type LeadKpis = {
+  leads: number; responded: number; no_reply: number;
+  median_response_min: number | null; median_response_min_in_hours: number | null; within_5_min: number | null;
+  quoted: number; booked: number; booked_value: number;
+  by_source: { source: string; leads: number; booked: number; booked_value: number }[];
+  by_line: { line: string; leads: number; booked: number }[];
+  missed: { missed: number; inbound_calls: number; voicemails: number; returned: number; not_returned: number; median_return_min: number | null };
+  monthly: { month: string; leads: number; quoted: number; booked: number }[];
+  people: { name: string; calls_answered: number; calls_made: number; texts_sent: number; leads_first_reply: number; median_response_min: number | null }[];
+};
+export type Lead = {
+  contact_phone: string; client_name: string | null; client_id: string | null; lead_at: string; source: string;
+  line_name: string | null; first_response_at: string | null; response_minutes: number | null; responded_by: string | null;
+  quoted_at: string | null; booked_at: string | null; booked_value: number; in_hours: boolean;
+};
+export type QuoFreshness = { last_synced: string | null; healthy: boolean; connected: boolean };
+
+export async function getLeadKpis(from: string, to: string): Promise<LeadKpis> {
+  if (isDemo()) return demo.leadKpis();
+  return await rpc<LeadKpis>("owner_leads", { p_from: from, p_to: to });
+}
+export async function getLeadList(from: string, to: string): Promise<Lead[]> {
+  if (isDemo()) return demo.leadList();
+  return (await rpc<any[]>("lead_list", { p_from: from, p_to: to })).map((r) => ({
+    ...r, response_minutes: r.response_minutes == null ? null : Number(r.response_minutes), booked_value: Number(r.booked_value ?? 0),
+  }));
+}
+export async function getQuoFreshness(): Promise<QuoFreshness> {
+  if (isDemo()) return { last_synced: new Date(Date.now() - 3 * 60_000).toISOString(), healthy: true, connected: true };
+  const rows = await rpc<any[]>("quo_freshness");
+  return rows?.[0] ?? { last_synced: null, healthy: true, connected: false };
+}

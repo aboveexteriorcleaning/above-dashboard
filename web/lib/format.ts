@@ -49,3 +49,12 @@ export function change(now: number, before: number) {
   if (!before) return null;
   return (now - before) / before;
 }
+
+/** Minutes as a short duration: "4 min", "2.5 hr", "3 days". */
+export function minutes(m: number | null | undefined) {
+  if (m == null) return "—";
+  if (m < 1) return "under 1 min";
+  if (m < 60) return `${Math.round(m)} min`;
+  if (m < 48 * 60) return `${Math.round((m / 60) * 10) / 10} hr`;
+  return `${Math.round((m / 1440) * 10) / 10} days`;
+}

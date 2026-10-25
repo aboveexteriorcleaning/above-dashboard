@@ -1,0 +1,142 @@
+import { Shell, requireSession } from "@/components/Shell";
+import { Periods } from "@/components/Periods";
+import { Stat } from "@/components/charts";
+import { LeadSheet } from "@/components/LeadSheet";
+import { getLeadKpis, getLeadList, getQuoFreshness } from "@/lib/data";
+import { resolvePeriod } from "@/lib/periods";
+import { minutes, money, n, pct, shortDate, timeAgo } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+
+export default async function Leads({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+  const session = await requireSession(["owner"]);
+  const period = resolvePeriod((await searchParams).p);
+  const fresh = await getQuoFreshness();
+
+  if (!fresh.connected) {
+    return (
+      <Shell page="leads" session={session}>
+        <main>
+          <div className="pagehead"><h1>Leads</h1></div>
+          <div className="panel" style={{ maxWidth: "70ch" }}>
+            <h2>Quo isn&rsquo;t connected yet</h2>
+            <p className="muted">Once the Quo key is added and the history import has run, this page shows new leads, how fast they got a reply, missed calls, and how many turned into quotes and booked jobs.</p>
+          </div>
+        </main>
+      </Shell>
+    );
+  }
+
+  const [k, list] = await Promise.all([getLeadKpis(period.from, period.to), getLeadList(period.from, period.to)]);
+  const m = k.missed;
+  const maxMonth = Math.max(...k.monthly.map((x) => x.leads), 1);
+  const attention = k.no_reply + m.not_returned;
+
+  return (
+    <Shell page="leads" session={session}>
+      <main>
+        <div className="pagehead">
+          <div>
+            <h1>Leads</h1>
+            <p className="muted" style={{ margin: "6px 0 0" }}>
+              {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+              <span className="small"> · Quo updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
+            </p>
+          </div>
+          <Periods current={period.key} base="/leads" />
+        </div>
+
+        {attention > 0 && (
+          <a href="#list" className="attention">
+            <strong>{n(attention)} {attention === 1 ? "person is" : "people are"} waiting on you</strong>
+            <span>{[k.no_reply && `${k.no_reply} ${k.no_reply === 1 ? "lead" : "leads"} with no reply yet`,
+              m.not_returned && `${m.not_returned} missed ${m.not_returned === 1 ? "call" : "calls"} not returned`].filter(Boolean).join(" · ")}</span>
+          </a>
+        )}
+
+        <section aria-labelledby="leads-h">
+          <div className="section-head"><h2 id="leads-h">New leads</h2></div>
+          <div className="stats">
+            <Stat value={n(k.leads)} label="New leads" note={k.by_source.slice(0, 3).map((s) => `${s.leads} ${s.source.toLowerCase()}`).join(", ") || undefined} />
+            <Stat value={minutes(k.median_response_min)} label="Speed to lead"
+              note={`Median first reply${k.within_5_min != null ? `; ${pct(k.within_5_min)} within 5 min` : ""}${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads during business hours` : ""}`} />
+            <Stat value={pct(k.leads ? k.quoted / k.leads : null)} label="Got a quote" note={`${n(k.quoted)} of ${n(k.leads)} leads`} />
+            <Stat value={pct(k.leads ? k.booked / k.leads : null)} label="Booked" note={`${n(k.booked)} leads, ${money(k.booked_value)} of work`} />
+          </div>
+        </section>
+
+        <section className="section" aria-labelledby="missed-h">
+          <div className="section-head"><h2 id="missed-h">Missed calls</h2><span className="muted small">All callers, not just new leads</span></div>
+          <div className="stats">
+            <Stat value={n(m.missed)} label="Missed calls" note={m.inbound_calls ? `${pct(m.missed / m.inbound_calls)} of ${n(m.inbound_calls)} incoming calls` : undefined} tone={m.missed ? "down" : undefined} />
+            <Stat value={n(m.returned)} label="Got back to" note={m.median_return_min != null ? `Median ${minutes(m.median_return_min)} later` : undefined} />
+            <Stat value={n(m.not_returned)} label="Never returned" note="No call, text or answered call since" tone={m.not_returned ? "down" : undefined} />
+            <Stat value={n(m.voicemails)} label="Left a voicemail" />
+          </div>
+        </section>
+
+        <div className="grid-2 section">
+          <section aria-labelledby="month-h">
+            <div className="section-head"><h2 id="month-h">Leads by month</h2><span className="muted small">Last 12 months</span></div>
+            <table className="rows">
+              <thead><tr><th>Month</th><th className="num">Leads</th><th className="num">Quoted</th><th className="num">Booked</th><th className="barcell hide-sm" aria-hidden /></tr></thead>
+              <tbody>
+                {k.monthly.map((x) => (
+                  <tr key={x.month}>
+                    <td>{mon(x.month)}</td><td className="num">{n(x.leads)}</td><td className="num">{n(x.quoted)}</td><td className="num">{n(x.booked)}</td>
+                    <td className="barcell hide-sm" aria-hidden><div className="track"><div className="bar" style={{ width: `${(x.leads / maxMonth) * 100}%` }} /></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+          <div>
+            <section aria-labelledby="src-h">
+              <div className="section-head"><h2 id="src-h">How leads came in</h2></div>
+              {k.by_source.length ? (
+                <table className="rows">
+                  <thead><tr><th>Source</th><th className="num">Leads</th><th className="num">Booked</th><th className="num">Work booked</th></tr></thead>
+                  <tbody>{k.by_source.map((s) => (
+                    <tr key={s.source}><td>{s.source}</td><td className="num">{n(s.leads)}</td><td className="num">{n(s.booked)}</td><td className="num">{money(s.booked_value)}</td></tr>
+                  ))}</tbody>
+                </table>
+              ) : <p className="muted">No new leads in this period.</p>}
+            </section>
+            {k.by_line.length > 1 && (
+              <section className="section" aria-labelledby="line-h">
+                <div className="section-head"><h2 id="line-h">By Quo number</h2></div>
+                <table className="rows">
+                  <thead><tr><th>Number</th><th className="num">Leads</th><th className="num">Booked</th></tr></thead>
+                  <tbody>{k.by_line.map((s) => <tr key={s.line}><td>{s.line}</td><td className="num">{n(s.leads)}</td><td className="num">{n(s.booked)}</td></tr>)}</tbody>
+                </table>
+              </section>
+            )}
+          </div>
+        </div>
+
+        <section className="section" aria-labelledby="ppl-h">
+          <div className="section-head"><h2 id="ppl-h">Phones by person</h2><span className="muted small">{period.label}</span></div>
+          {k.people.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table className="rows" style={{ minWidth: 640 }}>
+                <thead><tr><th>Person</th><th className="num">Calls answered</th><th className="num">Calls made</th><th className="num">Texts sent</th><th className="num">Leads they replied to first</th><th className="num">Median reply</th></tr></thead>
+                <tbody>{k.people.map((p) => (
+                  <tr key={p.name}><td><strong>{p.name}</strong></td><td className="num">{n(p.calls_answered)}</td><td className="num">{n(p.calls_made)}</td>
+                    <td className="num">{n(p.texts_sent)}</td><td className="num">{n(p.leads_first_reply)}</td><td className="num">{minutes(p.median_response_min)}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : <p className="muted">No calls or texts in this period.</p>}
+          <p className="muted small">Automatic texts aren&rsquo;t counted. Quo users are matched to the team by email or name.</p>
+        </section>
+
+        <section className="section" id="list" aria-labelledby="list-h">
+          <div className="section-head"><h2 id="list-h">Lead list</h2><span className="muted small">{n(list.length)} leads, {period.label.toLowerCase()}</span></div>
+          <LeadSheet rows={list} />
+        </section>
+      </main>
+    </Shell>
+  );
+}

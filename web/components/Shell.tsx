@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getFreshness, getSession, type Role, type Session } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
-type Page = "overview" | "plans" | "team" | "me";
+type Page = "overview" | "leads" | "plans" | "team" | "me";
 
 /** Gate for a page: signed in, set up by an owner, and allowed this page. */
 export async function requireSession(allow: Role[]): Promise<Session & { role: Role }> {
@@ -18,7 +18,7 @@ export async function Shell({ page, session, children }: { page: Page; session: 
   const fresh = await getFreshness();
   const stale = !fresh.healthy || !fresh.last_synced || Date.now() - new Date(fresh.last_synced).getTime() > 60 * 60_000;
   const links: { href: string; key: Page; label: string }[] = session.role === "owner"
-    ? [{ href: "/overview", key: "overview", label: "Overview" }, { href: "/plans", key: "plans", label: "Plans" }, { href: "/team", key: "team", label: "Team" }, { href: "/me", key: "me", label: "My stats" }]
+    ? [{ href: "/overview", key: "overview", label: "Overview" }, { href: "/leads", key: "leads", label: "Leads" }, { href: "/plans", key: "plans", label: "Plans" }, { href: "/team", key: "team", label: "Team" }, { href: "/me", key: "me", label: "My stats" }]
     : [{ href: "/me", key: "me", label: "My stats" }];
 
   return (

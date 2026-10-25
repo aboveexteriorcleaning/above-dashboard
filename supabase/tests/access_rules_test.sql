@@ -566,4 +566,61 @@ do $$ declare c jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Quo: leads, speed to lead, missed calls (December) ----------
+insert into public.quo_phone_numbers (id, phone_number, name) values ('PN1', '+13605550100', 'Main line');
+insert into public.quo_users (id, email, name) values ('USK', null, 'Kale (test)');
+insert into public.clients (id, name, phone) values ('CA', 'Lead A', '+13605551001');
+insert into public.quotes (id, client_id, status, total, created_at, sent_at) values ('QA', 'CA', 'awaiting_response', 500, '2026-12-02', '2026-12-02 19:00Z');
+insert into public.jobs (id, client_id, title, status, total, created_at) values ('JA', 'CA', 'Roof', 'upcoming', 500, '2026-12-05 18:00Z');
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, has_voicemail, quo_user_id, phone_number_id, text_head_hash, text_tail_hash) values
+ ('cA',  'call',    'inbound',  '+13605551001', '2026-12-01 17:00Z', '2026-12-01 17:00:05Z', 120, false, 'USK', 'PN1', null, null),
+ ('mB1', 'message', 'outbound', '+13605551002', '2026-12-02 18:00Z', null, null, false, 'USK', 'PN1', 'h1', 't1'),
+ ('mB2', 'message', 'inbound',  '+13605551002', '2026-12-02 18:10Z', null, null, false, null,  'PN1', null, null),
+ ('mB3', 'message', 'outbound', '+13605551002', '2026-12-02 18:30Z', null, null, false, 'USK', 'PN1', 'zz', 'yy'),
+ ('mC1', 'message', 'outbound', '+13605551003', '2026-12-02 18:01Z', null, null, false, 'USK', 'PN1', 'h1', 't1'),
+ ('mD1', 'message', 'outbound', '+13605551004', '2026-12-02 18:00Z', null, null, false, 'USK', 'PN1', 'h1', 't1'),
+ ('cD2', 'call',    'outbound', '+13605551004', '2026-12-02 18:03Z', '2026-12-02 18:03:10Z', 60, false, 'USK', 'PN1', null, null),
+ ('cE1', 'call',    'inbound',  '+13605551005', '2026-12-03 17:00Z', null, 30, true,  null,  'PN1', null, null),
+ ('cE2', 'call',    'outbound', '+13605551005', '2026-12-03 17:20Z', '2026-12-03 17:20:05Z', 90, false, 'USK', 'PN1', null, null),
+ ('cF',  'call',    'inbound',  '+13605551006', '2026-12-04 17:00Z', null, 0, false, null, 'PN1', null, null),
+ ('cG',  'call',    'inbound',  '+15550000001', '2026-12-05 17:00Z', '2026-12-05 17:00:03Z', 60, false, 'USK', 'PN1', null, null);
+select app.refresh_quo();
+do $$ begin
+  assert (select is_automated from public.communications where id = 'mB1') and (select is_automated from public.communications where id = 'mC1'), 'form auto-text detected';
+  assert not (select is_automated from public.communications where id = 'mB3'), 'human reply is not automated';
+  assert (select employee_id from public.communications where id = 'cA') = '11111111-0000-0000-0000-00000000000a', 'quo user linked to team member';
+  assert (select client_id from public.communications where id = 'cA') = 'CA', 'caller linked to Jobber client';
+  raise notice 'ok  quo: auto-texts spotted, people and customers linked';
+end $$;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_leads('2026-12-01','2026-12-31')$q$, 'crew cannot see lead numbers');
+select pg_temp.expect_fail($q$select * from public.lead_list('2026-12-01','2026-12-31')$q$, 'crew cannot see the lead list');
+do $$ begin
+  assert (select count(*) from public.communications) = 0 and (select count(*) from public.quo_users) = 0, 'crew sees no calls or texts';
+  raise notice 'ok  quo: crew cannot read calls, texts or Quo users';
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; p jsonb; begin
+  o := public.owner_leads('2026-12-01','2026-12-31');
+  assert (o->>'leads')::int = 5, format('leads %s', o->>'leads');        -- A, B, C, D, E (not the existing customer, not the hang-up)
+  assert (o->>'no_reply')::int = 1 and (o->>'responded')::int = 4, format('replies %s', o);
+  assert (o->>'median_response_min')::numeric = 11.5, format('median %s', o->>'median_response_min');  -- 0, 3, 20, 30
+  assert (o->>'within_5_min')::numeric = 0.4, format('within 5 %s', o->>'within_5_min');
+  assert (o->>'quoted')::int = 1 and (o->>'booked')::int = 1 and (o->>'booked_value')::numeric = 500, format('funnel %s', o);
+  assert (o->'missed'->>'missed')::int = 2 and (o->'missed'->>'inbound_calls')::int = 4
+     and (o->'missed'->>'returned')::int = 1 and (o->'missed'->>'not_returned')::int = 1
+     and (o->'missed'->>'median_return_min')::numeric = 20, format('missed %s', o->'missed');
+  select x into p from jsonb_array_elements(o->'people') x where x->>'name' = 'Kale (test)';
+  assert (p->>'calls_answered')::int = 2 and (p->>'calls_made')::int = 2 and (p->>'texts_sent')::int = 1, format('kale %s', p);
+  assert (select count(*) from public.lead_list('2026-12-01','2026-12-31')) = 5, 'lead list';
+  assert (select source from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551003') = 'Form (auto-text)', 'form source';
+  raise notice 'ok  quo: leads, speed to lead, missed calls and booked work';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

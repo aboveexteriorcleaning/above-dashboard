@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -169,3 +169,43 @@ export const teamPlanSales = (): TeamPlanSales[] => [
   { employee_id: "2", full_name: "Sample Owner", plans_sold: 1, on_site: 0, pre_job: 1, value_sold: 900, serviced_homes: 4, converted_homes: 0, conversion: 0 },
   { employee_id: "3", full_name: "Crew member B", plans_sold: 1, on_site: 1, pre_job: 0, value_sold: 350, serviced_homes: 11, converted_homes: 1, conversion: 0.091 },
 ];
+
+export function leadKpis(): LeadKpis {
+  const vals = [18, 22, 15, 12, 20, 34, 41, 52, 47, 39, 31, 27];
+  const months = vals.map((v, i) => {
+    const d = new Date(Date.UTC(2025, 10 + i, 1));
+    return { month: d.toISOString().slice(0, 10), leads: v, quoted: Math.round(v * 0.62), booked: Math.round(v * 0.34) };
+  });
+  return {
+    leads: 27, responded: 25, no_reply: 2, median_response_min: 6.5, median_response_min_in_hours: 3, within_5_min: 0.44,
+    quoted: 17, booked: 9, booked_value: 8640,
+    by_source: [
+      { source: "Called in", leads: 12, booked: 5, booked_value: 4890 },
+      { source: "Form (auto-text)", leads: 9, booked: 2, booked_value: 1650 },
+      { source: "Texted in", leads: 5, booked: 2, booked_value: 2100 },
+      { source: "We reached out", leads: 1, booked: 0, booked_value: 0 },
+    ],
+    by_line: [{ line: "Main line", leads: 27, booked: 9 }],
+    missed: { missed: 14, inbound_calls: 61, voicemails: 6, returned: 11, not_returned: 3, median_return_min: 22 },
+    monthly: months,
+    people: [
+      { name: "Sample Owner", calls_answered: 38, calls_made: 52, texts_sent: 140, leads_first_reply: 19, median_response_min: 4 },
+      { name: "Second Owner", calls_answered: 12, calls_made: 20, texts_sent: 61, leads_first_reply: 6, median_response_min: 14 },
+    ],
+  };
+}
+export function leadList(): Lead[] {
+  const rows: [string | null, string, string, number | null, string | null, string | null, string | null, number][] = [
+    ["Sample Lead A", "2026-10-24T17:12:00Z", "Called in", 0, "Sample Owner", "2026-10-24T22:00:00Z", "2026-10-25T16:00:00Z", 640],
+    [null, "2026-10-24T03:40:00Z", "Form (auto-text)", null, null, null, null, 0],
+    ["Sample Lead C", "2026-10-23T18:05:00Z", "Form (auto-text)", 4, "Sample Owner", "2026-10-23T23:30:00Z", null, 0],
+    ["Sample Lead D", "2026-10-22T20:15:00Z", "Texted in", 38, "Second Owner", null, null, 0],
+    ["Sample Lead E", "2026-10-21T16:30:00Z", "Called in", 15, "Sample Owner", "2026-10-21T21:00:00Z", "2026-10-22T18:00:00Z", 1150],
+    [null, "2026-10-20T15:02:00Z", "Called in", null, null, null, null, 0],
+  ];
+  return rows.map(([name, at, source, mins, who, q, b, v], i) => ({
+    contact_phone: `+1360555010${i}`, client_name: name, client_id: null, lead_at: at, source, line_name: "Main line",
+    first_response_at: mins == null ? null : at, response_minutes: mins, responded_by: who, quoted_at: q, booked_at: b,
+    booked_value: v, in_hours: true,
+  }));
+}
