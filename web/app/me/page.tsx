@@ -113,7 +113,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <div className="stats">
             <Stat value={money(me.upsell_revenue)} label="Upsells" note="Services added on site, plus optional items you sold on quotes" />
             <Stat value={n(plans.plans_sold)} label="Maintenance plans sold"
-              note={plans.plans_sold ? `${money(plans.value_sold)} a year in plan work${plans.plans_sold % 1 ? "; shared sales split with your crew" : ""}` : undefined} />
+              note={plans.plans_sold ? `${money(plans.value_sold)} a year in plan work` : undefined} />
             {plans.serviced_homes > 0 && <Stat value={pct(plans.conversion)} label="Plan conversion"
               note={`Sold a plan at ${n(plans.converted_homes)} of ${n(plans.serviced_homes)} homes you worked at that weren't on one`} />}
             {(me.quotes_sent > 0 || me.quotes_approved > 0) && <Stat value={`${n(me.quotes_approved)} / ${n(me.quotes_sent)}`} label="Your quotes approved / sent" />}

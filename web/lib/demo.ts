@@ -163,9 +163,9 @@ export function planCustomers(): PlanCustomer[] {
     };
   });
 }
-export const myPlanSales = (): PlanSales => ({ plans_sold: 2.5, on_site: 2.5, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 });
+export const myPlanSales = (): PlanSales => ({ plans_sold: 3, on_site: 3, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 });
 export const teamPlanSales = (): TeamPlanSales[] => [
-  { employee_id: "1", full_name: "Crew member A", plans_sold: 2.5, on_site: 2.5, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 },
+  { employee_id: "1", full_name: "Crew member A", plans_sold: 3, on_site: 3, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 },
   { employee_id: "2", full_name: "Sample Owner", plans_sold: 1, on_site: 0, pre_job: 1, value_sold: 900, serviced_homes: 4, converted_homes: 0, conversion: 0 },
-  { employee_id: "3", full_name: "Crew member B", plans_sold: 0.5, on_site: 0.5, pre_job: 0, value_sold: 350, serviced_homes: 11, converted_homes: 1, conversion: 0.091 },
+  { employee_id: "3", full_name: "Crew member B", plans_sold: 1, on_site: 1, pre_job: 0, value_sold: 350, serviced_homes: 11, converted_homes: 1, conversion: 0.091 },
 ];

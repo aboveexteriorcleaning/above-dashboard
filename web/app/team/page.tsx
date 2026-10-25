@@ -78,7 +78,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
             </div>
           ) : <p className="muted">No plan sales or completed jobs in this period.</p>}
           <p className="muted small" style={{ maxWidth: "75ch" }}>
-            On site: the plan was added to the job on or after the visit day, or the next plan visit was booked within 2 days of the visit. Credit is split evenly between everyone on that visit.
+            On site: the plan was added to the job on or after the visit day, or the next plan visit was booked within 2 days of the visit. Everyone on that visit gets full credit for the plan and its value.
             Pre-job: the plan was on the quote or on the job before the visit. Credit goes to the quote&rsquo;s salesperson.
             On-site conversion is the share of homes they worked at, that weren&rsquo;t already on a plan, where they sold one. Yearly value is the plan visit price times visits a year.
           </p>

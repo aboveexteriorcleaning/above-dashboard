@@ -511,11 +511,11 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 do $$ declare m record; begin
   select * into m from public.my_plan_sales('2026-10-01','2026-10-31');
-  -- half of the door sale (two-person crew) + all of the booked-after sale
-  assert m.plans_sold = 1.5 and m.on_site = 1.5 and m.pre_job = 0, format('connor sales %s', m);
+  -- full credit for the two-person door sale + the booked-after sale
+  assert m.plans_sold = 2 and m.on_site = 2 and m.pre_job = 0, format('connor sales %s', m);
   -- worked 1/2/3 Sale St (C1 was already on a plan): converted 2 of 3
   assert m.serviced_homes = 3 and m.converted_homes = 2, format('connor conversion %s', m);
-  assert m.value_sold = 0.5 * 700 + 700, format('connor value %s', m.value_sold);
+  assert m.value_sold = 700 + 700, format('connor value %s', m.value_sold);
   raise notice 'ok  plan sales: crew sees their own credited sales and on-site conversion';
 end $$;
 select pg_temp.expect_fail($q$select * from public.team_plan_sales('2026-10-01','2026-10-31')$q$, 'crew cannot compare plan sales');
@@ -527,7 +527,7 @@ do $$ declare t record; o jsonb; begin
   select * into t from public.team_plan_sales('2026-10-01','2026-10-31') where full_name = 'Kale (test)';
   assert t.plans_sold = 1 and t.pre_job = 1 and t.value_sold = 1900, format('kale %s', t);
   select * into t from public.team_plan_sales('2026-10-01','2026-10-31') where full_name = 'Sage (test)';
-  assert t.plans_sold = 0.5 and t.converted_homes = 1, format('sage %s', t);
+  assert t.plans_sold = 1 and t.value_sold = 700 and t.converted_homes = 1, format('sage %s', t);
   assert (select sold_by from public.plan_customers() where street = '1 Sale St') = 'Connor (test) & Sage (test)', 'sheet sold by';
   o := public.owner_plans('2026-10-01','2026-10-31');
   -- 2 on site; pre-job = Kale's quote plus the earlier test plans that have no seller
