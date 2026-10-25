@@ -14,7 +14,7 @@ export const STATUS: Record<PlanStatus, { label: string; tone: "good" | "warn" |
 const ATTENTION: PlanStatus[] = ["overdue", "not_booked", "needs_date", "booked_late"];
 
 type Filter = "attention" | "on_schedule" | "lapsed" | "all";
-type SortKey = "status" | "client_name" | "plan_name" | "last_visit" | "next_visit" | "due_date" | "visits_done" | "revenue_to_date" | "annual_value";
+type SortKey = "sold_by" | "status" | "client_name" | "plan_name" | "last_visit" | "next_visit" | "due_date" | "visits_done" | "revenue_to_date" | "annual_value";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const day = (d: string | null) => d ? new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—";
@@ -35,7 +35,7 @@ export function PlanSheet({ rows }: { rows: PlanCustomer[] }) {
     const needle = q.trim().toLowerCase();
     const list = rows.filter((r) =>
       (filter === "all" || (filter === "attention" ? ATTENTION.includes(r.status) : r.status === filter)) &&
-      (!needle || [r.client_name, r.street, r.city, r.plan_name, r.phone].some((v) => v?.toLowerCase().includes(needle))));
+      (!needle || [r.client_name, r.street, r.city, r.plan_name, r.phone, r.sold_by].some((v) => v?.toLowerCase().includes(needle))));
     const val = (r: PlanCustomer): string | number => {
       if (sort.key === "status") return STATUS[r.status].rank * 100000 - r.days_overdue;
       const v = r[sort.key];
@@ -56,10 +56,10 @@ export function PlanSheet({ rows }: { rows: PlanCustomer[] }) {
   );
 
   function downloadCsv() {
-    const head = ["Customer", "Phone", "Email", "Address", "City", "Plan", "Visits per year", "Status", "Last visit", "Next visit", "Next job #", "Due by", "Days overdue", "Visits done", "Plan revenue to date", "Visit value", "Annual value"];
+    const head = ["Customer", "Phone", "Email", "Address", "City", "Plan", "Visits per year", "Status", "Last visit", "Next visit", "Next job #", "Due by", "Days overdue", "Sold by", "How sold", "Sold on", "Visits done", "Plan revenue to date", "Visit value", "Annual value"];
     const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = shown.map((r) => [r.client_name, r.phone, r.email, r.street, r.city, r.plan_name, r.services_per_year, STATUS[r.status].label,
-      r.last_visit, r.next_visit, r.next_job_number, r.due_date, r.days_overdue || "", r.visits_done, r.revenue_to_date, r.visit_value, r.annual_value].map(esc).join(","));
+      r.last_visit, r.next_visit, r.next_job_number, r.due_date, r.days_overdue || "", r.sold_by, r.sale_channel === "on_site" ? "On site" : r.sale_channel === "pre_job" ? "Before the job" : "", r.sold_on, r.visits_done, r.revenue_to_date, r.visit_value, r.annual_value].map(esc).join(","));
     const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -98,6 +98,7 @@ export function PlanSheet({ rows }: { rows: PlanCustomer[] }) {
             {th("last_visit", "Last visit")}
             {th("due_date", "Due by")}
             {th("next_visit", "Next visit")}
+            {th("sold_by", "Sold by")}
             {th("visits_done", "Visits", true)}
             {th("revenue_to_date", "Revenue to date", true)}
             {th("annual_value", "Annual value", true)}
@@ -123,13 +124,17 @@ export function PlanSheet({ rows }: { rows: PlanCustomer[] }) {
                     {r.next_visit ? (jobUrl ? <a href={jobUrl} target="_blank" rel="noreferrer">{day(r.next_visit)}</a> : day(r.next_visit)) : <span className="muted">—</span>}
                     {r.next_job_number ? <div className="small muted">Job #{r.next_job_number}</div> : null}
                   </td>
+                  <td>
+                    <div>{r.sold_by ?? <span className="muted">Unknown</span>}</div>
+                    {r.sale_channel ? <div className="small muted">{r.sale_channel === "on_site" ? "On site" : "Before the job"}{r.sold_on ? `, ${day(r.sold_on)}` : ""}</div> : null}
+                  </td>
                   <td className="num">{r.visits_done}</td>
                   <td className="num">{usd.format(r.revenue_to_date)}</td>
                   <td className="num">{r.annual_value ? usd.format(r.annual_value) : <span className="muted">—</span>}</td>
                 </tr>
               );
             })}
-            {!shown.length && <tr><td colSpan={9} className="muted">No plan customers match.</td></tr>}
+            {!shown.length && <tr><td colSpan={10} className="muted">No plan customers match.</td></tr>}
           </tbody>
         </table>
       </div>

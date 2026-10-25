@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { PlanCustomer, PlanKpis, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -126,6 +126,7 @@ export function planKpis(): PlanKpis {
   return {
     revenue: 2650, visits: 7, share_of_revenue: 0.085, discounts: 375, avg_visit: 378, annual_value: 23100,
     booked_ahead: 23700, booked_ahead_visits: 64, revenue_to_date: 61400, homes: 31, signups: 4,
+    channels: { on_site: 3, pre_job: 1, unattributed: 0 },
     conversion: { serviced: 41, on_plan: 9, rate: 0.22, serviced_12m: 412, on_plan_12m: 31, rate_12m: 0.075 },
     status: { on_schedule: 22, booked_late: 2, not_booked: 6, needs_date: 1, overdue: 3, lapsed: 5 },
     by_plan: [
@@ -157,6 +158,14 @@ export function planCustomers(): PlanCustomer[] {
       last_visit: last, next_visit: next, next_job_id: null, next_job_number: next ? 700 + i : null, due_date: due, status,
       days_overdue: status === "overdue" ? 84 : status === "lapsed" ? 223 : 0, visits_done: visits, revenue_to_date: rev,
       visit_value: value, annual_value: status === "overdue" || status === "lapsed" ? 0 : value * per, signed_up: "2026-03-01",
+      sold_by: i % 3 === 0 ? "Sample Owner" : i % 3 === 1 ? "Crew member A & Crew member B" : "Crew member A",
+      sale_channel: i % 3 === 0 ? "pre_job" : "on_site", sold_on: last ?? "2026-06-01",
     };
   });
 }
+export const myPlanSales = (): PlanSales => ({ plans_sold: 2.5, on_site: 2.5, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 });
+export const teamPlanSales = (): TeamPlanSales[] => [
+  { employee_id: "1", full_name: "Crew member A", plans_sold: 2.5, on_site: 2.5, pre_job: 0, value_sold: 1650, serviced_homes: 14, converted_homes: 3, conversion: 0.214 },
+  { employee_id: "2", full_name: "Sample Owner", plans_sold: 1, on_site: 0, pre_job: 1, value_sold: 900, serviced_homes: 4, converted_homes: 0, conversion: 0 },
+  { employee_id: "3", full_name: "Crew member B", plans_sold: 0.5, on_site: 0.5, pre_job: 0, value_sold: 350, serviced_homes: 11, converted_homes: 1, conversion: 0.091 },
+];

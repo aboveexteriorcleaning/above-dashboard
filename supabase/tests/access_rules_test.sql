@@ -474,4 +474,67 @@ do $$ declare o jsonb; r record; begin
 end $$;
 reset role;
 
+-- ---------- who sold each plan ----------
+insert into public.clients (id,name) values ('C20','Sold on site'),('C21','Sold then booked'),('C22','Not sold');
+insert into public.properties (id,client_id,street) values ('P20','C20','1 Sale St'),('P21','C21','2 Sale St'),('P22','C22','3 Sale St');
+insert into public.jobs (id,client_id,property_id,title,status,total,created_at,start_at,completed_at) values
+ ('JS1','C20','P20','Windows','archived',350,'2026-10-01','2026-10-15 16:00Z','2026-10-15 22:00Z'),
+ ('JS2','C21','P21','Windows','archived',400,'2026-10-01','2026-10-16 16:00Z','2026-10-16 20:00Z'),
+ ('JS3','C21','P21','Windows','upcoming',350,'2026-10-16 20:05Z','2027-04-16 16:00Z',null),
+ ('JS4','C22','P22','Windows','archived',300,'2026-10-01','2026-10-17 16:00Z','2026-10-17 20:00Z');
+insert into public.job_line_items (id,job_id,product_name,total_price,created_at) values
+ ('LS1a','JS1','Exterior Window Cleaning',400,'2026-10-01'),
+ ('LS1b','JS1','Biannual Window Cleaning Plan',-50,'2026-10-15 21:55Z'),   -- added at the door
+ ('LS2','JS2','Exterior Window Cleaning',400,'2026-10-01'),
+ ('LS3a','JS3','Exterior Window Cleaning',400,'2026-10-16 20:05Z'),
+ ('LS3b','JS3','Biannual Window Cleaning Plan',-50,'2026-10-16 20:05Z'),   -- next visit booked right after
+ ('LS4','JS4','Exterior Window Cleaning',300,'2026-10-01');
+insert into public.visits (id,job_id,status,start_at) values
+ ('VS1','JS1','completed','2026-10-15 16:00Z'),('VS2','JS2','completed','2026-10-16 16:00Z'),
+ ('VS3','JS3','scheduled','2027-04-16 16:00Z'),('VS4','JS4','completed','2026-10-17 16:00Z');
+insert into public.visit_assignments values
+ ('VS1','11111111-0000-0000-0000-00000000000c'),('VS1','11111111-0000-0000-0000-00000000000d'),
+ ('VS2','11111111-0000-0000-0000-00000000000c'),('VS4','11111111-0000-0000-0000-00000000000c');
+select app.refresh_derived();
+do $$ declare s record; begin
+  select * into s from app.plan_sales where home_key = '1 sale st';
+  assert s.channel = 'on_site' and s.how = 'added_on_site', format('door sale %s', s);
+  select * into s from app.plan_sales where home_key = '2 sale st';
+  assert s.channel = 'on_site' and s.how = 'booked_after_visit' and s.sale_job_id = 'JS2', format('booked-after sale %s', s);
+  select * into s from app.plan_sales where home_key = 'client:C1';
+  assert s.channel = 'pre_job' and s.how = 'quote' and s.salesperson_id = '11111111-0000-0000-0000-00000000000a', format('quote sale %s', s);
+  assert not (select attributed from app.plan_sales where home_key = '12 elm st'), 'no seller found = unattributed';
+  raise notice 'ok  plan sales: quote, added at the door, and booked-after-visit are told apart';
+end $$;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare m record; begin
+  select * into m from public.my_plan_sales('2026-10-01','2026-10-31');
+  -- half of the door sale (two-person crew) + all of the booked-after sale
+  assert m.plans_sold = 1.5 and m.on_site = 1.5 and m.pre_job = 0, format('connor sales %s', m);
+  -- worked 1/2/3 Sale St (C1 was already on a plan): converted 2 of 3
+  assert m.serviced_homes = 3 and m.converted_homes = 2, format('connor conversion %s', m);
+  assert m.value_sold = 0.5 * 700 + 700, format('connor value %s', m.value_sold);
+  raise notice 'ok  plan sales: crew sees their own credited sales and on-site conversion';
+end $$;
+select pg_temp.expect_fail($q$select * from public.team_plan_sales('2026-10-01','2026-10-31')$q$, 'crew cannot compare plan sales');
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare t record; o jsonb; begin
+  select * into t from public.team_plan_sales('2026-10-01','2026-10-31') where full_name = 'Kale (test)';
+  assert t.plans_sold = 1 and t.pre_job = 1 and t.value_sold = 1900, format('kale %s', t);
+  select * into t from public.team_plan_sales('2026-10-01','2026-10-31') where full_name = 'Sage (test)';
+  assert t.plans_sold = 0.5 and t.converted_homes = 1, format('sage %s', t);
+  assert (select sold_by from public.plan_customers() where street = '1 Sale St') = 'Connor (test) & Sage (test)', 'sheet sold by';
+  o := public.owner_plans('2026-10-01','2026-10-31');
+  -- 2 on site; pre-job = Kale's quote plus the earlier test plans that have no seller
+  assert (o->'channels'->>'on_site')::int = 2
+     and (o->'channels'->>'pre_job')::int - (o->'channels'->>'unattributed')::int = 1, format('channels %s', o->'channels');
+  raise notice 'ok  plan sales: owners see everyone, the sheet shows who sold each plan';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

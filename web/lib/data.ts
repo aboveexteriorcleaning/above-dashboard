@@ -155,6 +155,7 @@ export type PlanKpis = {
   revenue: number; visits: number; share_of_revenue: number | null; discounts: number; avg_visit: number | null;
   annual_value: number; booked_ahead: number; booked_ahead_visits: number; revenue_to_date: number;
   homes: number; signups: number;
+  channels: { on_site: number; pre_job: number; unattributed: number };
   conversion: { serviced: number; on_plan: number; rate: number | null; serviced_12m: number; on_plan_12m: number; rate_12m: number | null };
   status: Partial<Record<PlanStatus, number>>;
   by_plan: { plan: string; per_year: number; homes: number; revenue: number }[];
@@ -168,6 +169,7 @@ export type PlanCustomer = {
   next_job_id: string | null; next_job_number: number | null; due_date: string | null; status: PlanStatus;
   days_overdue: number; visits_done: number; revenue_to_date: number; visit_value: number;
   annual_value: number; signed_up: string | null;
+  sold_by: string | null; sale_channel: "on_site" | "pre_job" | null; sold_on: string | null;
 };
 export async function getPlanKpis(from: string, to: string): Promise<PlanKpis> {
   if (isDemo()) return demo.planKpis();
@@ -180,4 +182,17 @@ export async function getPlanCustomers(): Promise<PlanCustomer[]> {
     services_per_year: Number(r.services_per_year), visits_done: Number(r.visits_done), days_overdue: Number(r.days_overdue),
     revenue_to_date: Number(r.revenue_to_date ?? 0), visit_value: Number(r.visit_value ?? 0), annual_value: Number(r.annual_value ?? 0),
   }));
+}
+
+export type PlanSales = { plans_sold: number; on_site: number; pre_job: number; value_sold: number;
+  serviced_homes: number; converted_homes: number; conversion: number | null };
+export type TeamPlanSales = PlanSales & { employee_id: string; full_name: string };
+export async function getMyPlanSales(from: string, to: string): Promise<PlanSales> {
+  if (isDemo()) return demo.myPlanSales();
+  const rows = await rpc<any[]>("my_plan_sales", { p_from: from, p_to: to });
+  return numify<PlanSales>(rows[0]);
+}
+export async function getTeamPlanSales(from: string, to: string): Promise<TeamPlanSales[]> {
+  if (isDemo()) return demo.teamPlanSales();
+  return (await rpc<any[]>("team_plan_sales", { p_from: from, p_to: to })).map((r) => numify<TeamPlanSales>(r));
 }
