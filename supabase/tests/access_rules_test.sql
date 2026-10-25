@@ -791,4 +791,34 @@ do $$ declare o jsonb; l jsonb; a jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Operations: crew economics and quality ----------
+update public.jobs set job_number = 9002 where id = 'JS2';
+insert into public.jobs (id, client_id, title, status, total, created_at, start_at) values
+ ('CB1', 'C21', 'Callback - #9002', 'upcoming', 0, '2026-10-20 18:00Z', '2026-10-21 16:00Z');
+insert into public.visits (id, job_id, status, start_at, end_at) values ('VCB1', 'CB1', 'scheduled', '2026-10-21 16:00Z', '2026-10-21 18:00Z');
+insert into public.visit_assignments values ('VCB1', '11111111-0000-0000-0000-00000000000c');
+select app.refresh_derived();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_crews('2026-10-01','2026-10-31')$q$, 'crew cannot see crew economics');
+select pg_temp.expect_fail($q$select public.owner_quality('2026-10-01','2026-10-31')$q$, 'crew cannot see quality numbers');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; q jsonb; p jsonb; begin
+  o := public.owner_crews('2026-10-01','2026-10-31');
+  -- Connor: Oct 10 hourly 3h x $20 + $8/h burden = $84; Oct 15 half of $350 x 15% = $52.50; Oct 16 $400 x 20% = $80; Oct 17 $300 x 20% = $60
+  assert (o->>'labor_cost')::numeric = 276.50, format('labor %s', o->>'labor_cost');
+  assert (o->>'labor_unpriced_days')::int = 3, 'Sage has no wage on file: her days are flagged, not counted as $0';
+  assert (o->>'revenue')::numeric = (public.owner_overview('2026-10-01','2026-10-31')->'revenue'->>'completed')::numeric, 'same completed revenue as the Overview';
+  q := public.owner_quality('2026-10-01','2026-10-31');
+  assert (q->>'callbacks')::int = 1 and (q->>'rework_hours')::numeric = 2, format('quality %s', q);
+  assert (q->>'callback_cost')::numeric = 55, format('callback cost %s', q->>'callback_cost');   -- 2h x avg cost ($28 + $27) / 2
+  select x into p from jsonb_array_elements(q->'by_person') x where x->>'name' = 'Connor (test)';
+  assert (p->>'callbacks')::int = 1, format('connor callbacks %s', p);
+  assert (q->'list'->0->>'original_crew') = 'Connor (test)', format('traced to crew %s', q->'list');
+  raise notice 'ok  operations: labor cost, labor-only margins, callbacks traced to the crew';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

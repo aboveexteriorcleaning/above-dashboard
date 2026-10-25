@@ -274,3 +274,26 @@ export async function getSales(from: string, to: string): Promise<SalesKpis> {
   if (isDemo()) return demo.sales();
   return await rpc<SalesKpis>("owner_sales", { p_from: from, p_to: to });
 }
+
+// ---------- operations (owners) ----------
+export type CrewKpis = {
+  revenue: number; jobs: number; field_hours: number; labor_cost: number; labor_unpriced_days: number;
+  crew_days: number; work_days: number; scheduled_hours: number; clocked_hours: number;
+  over_days: { day: string; name: string; scheduled: number; clocked: number }[];
+  overtime_hours: number; paid_hours: number;
+  by_service: { service: string; jobs: number; revenue: number; labor: number }[];
+  by_size: { t: number; jobs: number; revenue: number; labor: number; revenue_per_hour: number | null }[];
+};
+export type QualityKpis = {
+  callbacks: number; completed_jobs: number; rework_hours: number; callback_cost: number; unlinked: number;
+  list: { id: string; job_number: number | null; client_name: string | null; created_at: string; original_job_number: number | null; original_crew: string | null; rework_hours: number | null }[];
+  by_person: { name: string; jobs: number; callbacks: number; rate: number | null }[];
+};
+export async function getCrews(from: string, to: string): Promise<CrewKpis> {
+  if (isDemo()) return demo.crews();
+  return await rpc<CrewKpis>("owner_crews", { p_from: from, p_to: to });
+}
+export async function getQuality(from: string, to: string): Promise<QualityKpis> {
+  if (isDemo()) return demo.quality();
+  return await rpc<QualityKpis>("owner_quality", { p_from: from, p_to: to });
+}

@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -248,4 +248,29 @@ export const sales = (): SalesKpis => ({
     { id: "q2", client_name: "Sample Customer K", client_id: null, value: 1507, sent_at: "2026-10-20T16:26:00Z", days_waiting: 5, last_contact: "2026-10-23T18:00:00Z" },
     { id: "q3", client_name: "Sample Customer L", client_id: null, value: 864, sent_at: "2026-10-12T01:13:00Z", days_waiting: 13, last_contact: null },
   ],
+});
+
+export const crews = (): CrewKpis => ({
+  revenue: 31275, jobs: 37, field_hours: 262, labor_cost: 6840, labor_unpriced_days: 0, crew_days: 29, work_days: 21,
+  scheduled_hours: 214, clocked_hours: 241,
+  over_days: [{ day: "2026-10-22", name: "Crew member A", scheduled: 6, clocked: 8.5 }, { day: "2026-10-17", name: "Crew member B", scheduled: 5.5, clocked: 7 }],
+  overtime_hours: 6.5, paid_hours: 241,
+  by_service: [
+    { service: "Roof", jobs: 14, revenue: 13400, labor: 2650 }, { service: "Christmas lights", jobs: 11, revenue: 6300, labor: 1720 },
+    { service: "Windows", jobs: 12, revenue: 5200, labor: 1180 }, { service: "Gutters", jobs: 10, revenue: 3100, labor: 690 },
+    { service: "House wash", jobs: 4, revenue: 3600, labor: 600 }, { service: "Plan discount", jobs: 8, revenue: -400, labor: 0 },
+  ],
+  by_size: [
+    { t: 1, jobs: 6, revenue: 1340, labor: 520, revenue_per_hour: 74 }, { t: 2, jobs: 14, revenue: 6210, labor: 1790, revenue_per_hour: 96 },
+    { t: 3, jobs: 9, revenue: 6980, labor: 1600, revenue_per_hour: 118 }, { t: 4, jobs: 6, revenue: 8650, labor: 1810, revenue_per_hour: 131 },
+    { t: 5, jobs: 2, revenue: 8095, labor: 1120, revenue_per_hour: 152 },
+  ],
+});
+export const quality = (): QualityKpis => ({
+  callbacks: 2, completed_jobs: 37, rework_hours: 3.5, callback_cost: 96.25, unlinked: 0,
+  list: [
+    { id: "c1", job_number: 741, client_name: "Sample Customer M", created_at: "2026-10-19T18:00:00Z", original_job_number: 702, original_crew: "Crew member A & Crew member B", rework_hours: 2 },
+    { id: "c2", job_number: 733, client_name: "Sample Customer N", created_at: "2026-10-08T18:00:00Z", original_job_number: 690, original_crew: "Crew member A", rework_hours: 1.5 },
+  ],
+  by_person: [{ name: "Crew member A", jobs: 28, callbacks: 2, rate: 0.071 }, { name: "Crew member B", jobs: 19, callbacks: 1, rate: 0.053 }, { name: "Sample Owner", jobs: 9, callbacks: 0, rate: 0 }],
 });
