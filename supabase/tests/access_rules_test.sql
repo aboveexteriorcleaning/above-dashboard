@@ -3,6 +3,18 @@
 -- Same timezone everywhere the tests run (GitHub's database uses UTC).
 set timezone = 'UTC';
 
+-- ---------- every dashboard function runs without JIT (it adds ~1.5s per page) ----------
+do $$
+declare missing text;
+begin
+  select string_agg(p.proname, ', ') into missing
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname in ('public', 'app') and p.prokind = 'f'
+    and not coalesce('jit=off' = any(p.proconfig), false);
+  assert missing is null, format('functions without jit=off (re-run the jit block in your migration): %s', missing);
+  raise notice 'ok  every dashboard function has jit off';
+end $$;
+
 -- ---------- every table must have access rules switched on ----------
 do $$
 declare missing text;
@@ -54,6 +66,8 @@ insert into public.timesheet_entries (id,employee_id,job_id,started_at,ended_at,
  ('T3','11111111-0000-0000-0000-00000000000d','J2','2026-10-12 16:00Z','2026-10-12 18:00Z',120);
 insert into raw.records (source,object_type,source_id,payload,received_via)
  values ('jobber','job','J1','{}','backfill');
+-- what the sync does after every run
+select app.refresh_derived();
 
 -- helper to expect a failure
 create function pg_temp.expect_fail(sql text, label text) returns void language plpgsql as $$
@@ -627,6 +641,7 @@ reset role;
 
 insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, phone_number_id)
 values ('cH', 'call', 'inbound', '+13605551008', '2026-12-07 05:30Z', '2026-12-07 05:30:02Z', 60, 'PN1');  -- Sun 9:30pm Pacific
+select app.refresh_quo();
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ begin

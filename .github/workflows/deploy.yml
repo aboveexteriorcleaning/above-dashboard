@@ -67,6 +67,7 @@ jobs:
                    supabase/migrations/20261024000016_returning_split.sql \
                    supabase/migrations/20261025000017_quo.sql \
                    supabase/migrations/20261025000018_business_hours.sql \
+                   supabase/migrations/20261025000019_stored_rollups.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -95,7 +96,8 @@ jobs:
                    ../migrations/20261024000015_plan_credit_full.sql \
                    ../migrations/20261024000016_returning_split.sql \
                    ../migrations/20261025000017_quo.sql \
-                   ../migrations/20261025000018_business_hours.sql; do
+                   ../migrations/20261025000018_business_hours.sql \
+                   ../migrations/20261025000019_stored_rollups.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/
