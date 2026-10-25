@@ -172,3 +172,38 @@ input, select {
   .today h2, .today .muted { color: var(--slate-2); }
   .today-goal { color: var(--slate); }
 }
+
+/* ---------- plans ---------- */
+.attention {
+  display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; margin-bottom: 32px;
+  padding: 14px 18px; border-radius: var(--radius-l); background: var(--cedar-soft); color: var(--slate); text-decoration: none;
+  border-left: 4px solid var(--cedar);
+}
+.attention span { color: var(--slate-2); }
+.attention:hover strong { text-decoration: underline; }
+.sheet-tools { display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: 0.9rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--slate-2); min-height: 36px;
+}
+.chip[aria-pressed="true"] { background: var(--slate); color: var(--mist); border-color: var(--slate); }
+.chip-n { opacity: 0.75; margin-left: 4px; }
+.sheet-actions { display: flex; gap: 8px; align-items: center; flex: 1 1 320px; justify-content: flex-end; }
+.sheet-actions input { max-width: 300px; height: 40px; }
+.sheet-actions .btn { white-space: nowrap; }
+.sheet-wrap { overflow-x: auto; background: var(--paper); border-radius: var(--radius-l); padding: 6px 18px; }
+.sheet { min-width: 980px; }
+.sheet td { padding-right: 12px; }
+.sheet td.date { white-space: nowrap; }
+.sheet th { padding-top: 12px; }
+.sheet tr.dim td { color: var(--slate-2); }
+.cell-strong { font-weight: 650; }
+.sortbtn { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+.status { display: inline-block; font-size: 0.82rem; font-weight: 650; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.status.good { background: color-mix(in srgb, var(--fir) 16%, transparent); color: var(--fir); }
+.status.warn { background: var(--cedar-soft); color: var(--cedar); }
+.status.bad  { background: var(--cedar); color: #fff; }
+.status.off  { background: var(--rule); color: var(--slate-2); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 640px) { .sheet-actions { justify-content: flex-start; } .sheet-actions input { max-width: none; } }

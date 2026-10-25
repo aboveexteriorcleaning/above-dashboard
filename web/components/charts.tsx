@@ -70,7 +70,7 @@ export function Aging({ r }: { r: { current: number; d1_30: number; d31_60: numb
 }
 
 /** Completed revenue by month. The current month is drawn in the accent; earlier months are muted. */
-export function Trend({ rows }: { rows: { month: string; completed_revenue: number; completed_jobs: number }[] }) {
+export function Trend({ rows, label = "Completed revenue by month", unit = "jobs" }: { rows: { month: string; completed_revenue: number; completed_jobs: number }[]; label?: string; unit?: string }) {
   const W = 720, H = 220, pad = { l: 44, r: 8, t: 16, b: 26 };
   const max = Math.max(...rows.map((r) => r.completed_revenue), 1);
   const nice = niceMax(max);
@@ -79,7 +79,7 @@ export function Trend({ rows }: { rows: { month: string; completed_revenue: numb
   const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "short", timeZone: "UTC" });
   return (
     <figure className="trend" style={{ margin: 0 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Completed revenue by month">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <g key={f}>
             <line x1={pad.l} x2={W - pad.r} y1={y(nice * f)} y2={y(nice * f)} stroke="var(--rule)" />
@@ -92,7 +92,7 @@ export function Trend({ rows }: { rows: { month: string; completed_revenue: numb
             <g key={r.month}>
               <rect x={x} y={y(r.completed_revenue)} width={w} height={Math.max(0, y(0) - y(r.completed_revenue))} rx={3}
                 fill={last ? "var(--glass)" : "color-mix(in srgb, var(--glass) 35%, var(--rule))"}>
-                <title>{`${mon(r.month)}: ${money(r.completed_revenue)} from ${n(r.completed_jobs)} jobs`}</title>
+                <title>{`${mon(r.month)}: ${money(r.completed_revenue)} from ${n(r.completed_jobs)} ${unit}`}</title>
               </rect>
               <text x={x + w / 2} y={H - 8} textAnchor="middle">{mon(r.month)}</text>
             </g>

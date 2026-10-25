@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { PlanCustomer, PlanKpis, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -111,3 +111,51 @@ export const teamCommission = (): TeamCommission[] => [
   { employee_id: "1", full_name: "Crew member A", commission_earned: 1149.35, commission_days: 6, work_days: 8, missing_wage: false },
   { employee_id: "2", full_name: "Crew member B", commission_earned: 640.5, commission_days: 4, work_days: 8, missing_wage: false },
 ];
+
+export function planKpis(): PlanKpis {
+  const vals = [1850, 2400, 3100, 4600, 6900, 7400, 6200, 5800, 4300, 3900, 3200, 2650];
+  const base = new Date(Date.UTC(2025, 10, 1));
+  const monthly = vals.map((v, i) => {
+    const d = new Date(base); d.setUTCMonth(base.getUTCMonth() + i);
+    return { month: d.toISOString().slice(0, 10), completed_revenue: v, completed_jobs: Math.round(v / 380) };
+  });
+  const ahead = [1900, 3600, 4200, 5100, 6800, 2100].map((v, i) => {
+    const d = new Date(Date.UTC(2026, 9 + i, 1));
+    return { month: d.toISOString().slice(0, 10), value: v, visits: Math.round(v / 370) };
+  });
+  return {
+    revenue: 2650, visits: 7, share_of_revenue: 0.085, discounts: 375, avg_visit: 378, annual_value: 23100,
+    booked_ahead: 23700, booked_ahead_visits: 64, revenue_to_date: 61400, homes: 31, signups: 4,
+    status: { on_schedule: 22, booked_late: 2, not_booked: 6, needs_date: 1, overdue: 3, lapsed: 5 },
+    by_plan: [
+      { plan: "Biannual Window Cleaning Plan", per_year: 2, homes: 17, revenue: 1290 },
+      { plan: "Biannual Roof Cleaning Plan", per_year: 2, homes: 7, revenue: 780 },
+      { plan: "Quarterly Window Cleaning Plan", per_year: 4, homes: 3, revenue: 330 },
+      { plan: "Annual Window Cleaning Plan", per_year: 1, homes: 2, revenue: 0 },
+      { plan: "4-Month Roof Cleaning Plan", per_year: 3, homes: 2, revenue: 250 },
+    ],
+    monthly, ahead,
+  };
+}
+export function planCustomers(): PlanCustomer[] {
+  const rows: [string, string, string, string | null, string | null, string | null, PlanCustomer["status"], number, number, number][] = [
+    ["Sample Customer A", "101 Example St", "Biannual Window Cleaning Plan", "2026-07-06", "2027-01-06", "2027-01-04", "on_schedule", 2, 700, 350],
+    ["Sample Customer B", "22 Demo Ave", "Biannual Roof Cleaning Plan", "2026-10-10", null, "2027-04-10", "not_booked", 1, 950, 950],
+    ["Sample Customer C", "9 Placeholder Rd", "Quarterly Window Cleaning Plan", "2026-05-02", null, "2026-08-01", "overdue", 3, 1020, 340],
+    ["Sample Customer D", "47 Fictional Ln", "Biannual Window Cleaning Plan", "2026-06-18", "2026-12-17", "2026-12-18", "on_schedule", 1, 450, 450],
+    ["Sample Customer E", "310 Mock Ct", "4-Month Roof Cleaning Plan", "2026-06-01", "2026-11-20", "2026-09-30", "booked_late", 1, 525, 525],
+    ["Sample Customer F", "5 Example Way", "Annual Window Cleaning Plan", null, "2027-06-11", null, "on_schedule", 0, 0, 525],
+    ["Sample Customer G", "88 Demo Blvd", "Biannual Window Cleaning Plan", "2025-09-14", null, "2026-03-15", "lapsed", 1, 300, 300],
+    ["Sample Customer H", "14 Sample Dr", "Biannual Roof Cleaning Plan", "2026-09-08", null, "2027-03-09", "needs_date", 1, 279, 279],
+  ];
+  return rows.map(([name, street, plan, last, next, due, status, visits, rev, value], i) => {
+    const per = /Quarterly/.test(plan) ? 4 : /4-Month/.test(plan) ? 3 : /Annual W/.test(plan) ? 1 : 2;
+    return {
+      home_key: street.toLowerCase(), service_line: /Roof/.test(plan) ? "roof" : "window", plan_name: plan, services_per_year: per,
+      client_id: null, client_name: name, phone: "+1 555 010 00" + i, email: null, street, city: "Olympia",
+      last_visit: last, next_visit: next, next_job_id: null, next_job_number: next ? 700 + i : null, due_date: due, status,
+      days_overdue: status === "overdue" ? 84 : status === "lapsed" ? 223 : 0, visits_done: visits, revenue_to_date: rev,
+      visit_value: value, annual_value: status === "overdue" || status === "lapsed" ? 0 : value * per, signed_up: "2026-03-01",
+    };
+  });
+}

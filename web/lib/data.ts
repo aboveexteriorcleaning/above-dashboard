@@ -148,3 +148,34 @@ export async function getTeamCommission(from: string, to: string): Promise<TeamC
   if (isDemo()) return demo.teamCommission();
   return (await rpc<any[]>("team_commission", { p_from: from, p_to: to })).map((r) => numify<TeamCommission>(r));
 }
+
+// ---------- plans (owners) ----------
+export type PlanStatus = "on_schedule" | "booked_late" | "needs_date" | "not_booked" | "overdue" | "lapsed";
+export type PlanKpis = {
+  revenue: number; visits: number; share_of_revenue: number | null; discounts: number; avg_visit: number | null;
+  annual_value: number; booked_ahead: number; booked_ahead_visits: number; revenue_to_date: number;
+  homes: number; signups: number; status: Partial<Record<PlanStatus, number>>;
+  by_plan: { plan: string; per_year: number; homes: number; revenue: number }[];
+  monthly: { month: string; completed_revenue: number; completed_jobs: number }[];
+  ahead: { month: string; value: number; visits: number }[];
+};
+export type PlanCustomer = {
+  home_key: string; service_line: string; plan_name: string; services_per_year: number;
+  client_id: string | null; client_name: string | null; phone: string | null; email: string | null;
+  street: string | null; city: string | null; last_visit: string | null; next_visit: string | null;
+  next_job_id: string | null; next_job_number: number | null; due_date: string | null; status: PlanStatus;
+  days_overdue: number; visits_done: number; revenue_to_date: number; visit_value: number;
+  annual_value: number; signed_up: string | null;
+};
+export async function getPlanKpis(from: string, to: string): Promise<PlanKpis> {
+  if (isDemo()) return demo.planKpis();
+  return await rpc<PlanKpis>("owner_plans", { p_from: from, p_to: to });
+}
+export async function getPlanCustomers(): Promise<PlanCustomer[]> {
+  if (isDemo()) return demo.planCustomers();
+  return (await rpc<any[]>("plan_customers")).map((r) => ({
+    ...r,
+    services_per_year: Number(r.services_per_year), visits_done: Number(r.visits_done), days_overdue: Number(r.days_overdue),
+    revenue_to_date: Number(r.revenue_to_date ?? 0), visit_value: Number(r.visit_value ?? 0), annual_value: Number(r.annual_value ?? 0),
+  }));
+}

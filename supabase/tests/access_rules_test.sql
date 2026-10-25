@@ -443,4 +443,31 @@ do $$ begin
 end $$;
 reset role;
 
+-- ---------- plans tab ----------
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_plans('2026-10-01','2026-10-31')$q$, 'crew cannot see plan KPIs');
+select pg_temp.expect_fail($q$select * from public.plan_customers()$q$, 'crew cannot see the plan customer list');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; r record; begin
+  select * into r from public.plan_customers() where client_id = 'C1';
+  assert r.status = 'not_booked' and r.last_visit = '2026-10-10' and r.due_date = '2027-04-10', format('C1 row %s', r);
+  select * into r from public.plan_customers() where street = '5 Pine Rd';
+  assert r.status = 'overdue' and r.days_overdue > 0 and r.annual_value = 0, format('lapsing row %s', r);
+  assert (select count(*) from public.plan_customers() where home_key = '12 elm st') = 1, 'duplicate clients collapse to one home';
+  assert (select status from public.plan_customers() where street = '99 Oak Ave') = 'on_schedule', 'booked = on schedule';
+  assert (select count(*) from public.plan_customers()) = 4, 'four plan homes';
+  o := public.owner_plans('2026-10-01','2026-10-31');
+  assert (o->>'revenue')::numeric = 1010 and (o->>'visits')::int = 1, format('plan revenue %s', o);
+  assert (o->>'booked_ahead')::numeric = 1000 and (o->>'booked_ahead_visits')::int = 3, format('booked ahead %s', o);
+  assert (o->>'homes')::int = 3 and (o->>'annual_value')::numeric = 3900, format('homes/annual %s', o);
+  assert (o->>'discounts')::numeric = 50, format('discounts %s', o);
+  assert jsonb_array_length(o->'monthly') = 12 and jsonb_array_length(o->'ahead') = 6, 'monthly + ahead lengths';
+  assert (o->'status'->>'overdue')::int = 1, format('status counts %s', o->'status');
+  raise notice 'ok  plans tab: revenue, booked ahead, annual value, and on-schedule flags';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
