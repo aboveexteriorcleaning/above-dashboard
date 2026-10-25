@@ -57,7 +57,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                 <div className="stats">
                   <Stat value={n(o.customers.new)} label="First-time customers" />
                   <Stat value={n(o.customers.returning)} label="Returning customers" />
-                  <Stat value={n(o.customers.active_plans)} label="On a maintenance plan" />
+                  <Stat value={n(o.customers.active_plans)} label="Homes on a maintenance plan" note="Next plan visit booked, or a plan visit within the last cycle" />
                   <Stat value={n(o.quality.callbacks)} label="Callbacks"
                     note={o.quality.callback_rate != null ? `${pct(o.quality.callback_rate)} of completed jobs` : undefined}
                     tone={o.quality.callbacks > 0 ? "down" : undefined} />

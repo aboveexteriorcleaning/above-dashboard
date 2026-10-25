@@ -402,4 +402,45 @@ do $$ declare c record; begin
 end $$;
 reset role;
 
+-- ---------- maintenance plans ----------
+insert into public.clients (id,name) values ('C10','Plan A'),('C11','Plan A duplicate'),('C12','Old-style plan'),
+  ('C13','Lapsed plan'),('C14','No plan'),('C15','Deleted plan');
+insert into public.properties (id,client_id,street) values ('P10','C10','12 Elm St'),('P11','C11',' 12  ELM st '),
+  ('P12','C12','99 Oak Ave'),('P13','C13','5 Pine Rd'),('P14','C14','7 Fir Ln'),('P15','C15','8 Ash Ct');
+insert into public.jobs (id,client_id,property_id,title,status,total,created_at,start_at,completed_at) values
+ ('JP10','C10','P10','Gutters','upcoming',300,now(),now() + interval '120 days',null),
+ ('JP11','C11','P11','Gutters','upcoming',300,now(),now() + interval '130 days',null),
+ ('JP12','C12','P12','6-Month Roof Maintenance Plan','upcoming',400,now(),now() + interval '90 days',null),
+ ('JP13','C13','P13','Windows','archived',300,now() - interval '300 days',now() - interval '300 days',now() - interval '300 days'),
+ ('JP14','C14','P14','Windows','upcoming',300,now(),now() + interval '30 days',null),
+ ('JP15','C15','P15','Windows','deleted',300,now(),now() + interval '30 days',null);
+insert into public.job_line_items (id,job_id,product_name,total_price) values
+ ('LP10','JP10','Quarterly Gutter Plan',-40),('LP11','JP11','Quarterly Gutter Plan',-40),
+ ('LP13','JP13','Biannual Window Cleaning Plan',-50),('LP14','JP14','Exterior Window Cleaning',300),
+ ('LP15','JP15','Biannual Window Cleaning Plan',-50);
+select app.refresh_derived();
+do $$ declare pp record; begin
+  select * into pp from public.plan_products where product_name = 'Quarterly Gutter Plan';
+  assert pp.services_per_year = 4 and pp.service_line = 'roof' and pp.discount_per_visit = 40, format('auto catalog %s', pp);
+  assert (select is_plan_discount from public.job_line_items where id = 'LP10'), 'new plan line flagged';
+  assert app.plan_visits_per_year('Biannual Window Cleaning Plan') = 2 and app.plan_visits_per_year('Annual Roof Cleaning Plan') = 1
+     and app.plan_visits_per_year('4-Month Roof Cleaning Plan') = 3 and app.plan_visits_per_year('Monthly Window Cleaning Plan') = 12, 'visits per year';
+  raise notice 'ok  plans: new plan names join the catalog automatically';
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare c record; begin
+  select * into c from public.company_summary('2026-10-01','2026-10-31');
+  -- C1 (recent plan visit) + 12 Elm St once (two client records) + 99 Oak Ave (plan in title)
+  assert c.active_plans = 3, format('active plans %s', c.active_plans);
+  raise notice 'ok  plans: booked next visits count, once per address; lapsed, deleted and non-plan jobs do not';
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ begin
+  assert (public.owner_overview('2026-10-01','2026-10-31')->'customers'->>'active_plans')::int = 3, 'overview plans';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
