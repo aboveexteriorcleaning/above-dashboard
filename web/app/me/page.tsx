@@ -58,7 +58,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <div className="section-head"><h2 id="jobs">Your jobs</h2><span className="muted small">{n(jobs.length)} completed</span></div>
           {jobs.length ? (
             <table className="rows">
-              <thead><tr><th>Date</th><th>Client</th><th className="hide-sm">Job</th><th className="num hide-sm">Crew</th><th className="num">{me.hours_source === "clocked" ? "Hours" : "Hours (est.)"}</th><th className="num">Your share</th></tr></thead>
+              <thead><tr><th>Date</th><th>Client</th><th className="hide-sm">Job</th><th className="num hide-sm">Crew</th><th className="num">Hours (est.)</th><th className="num">Your share</th></tr></thead>
               <tbody>
                 {jobs.map((j) => (
                   <tr key={j.job_id}>

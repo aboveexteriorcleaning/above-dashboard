@@ -277,8 +277,10 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 do $$ declare j record; begin
   select * into j from public.my_jobs('2026-09-01','2026-09-30');
-  assert j.my_revenue = 400 and j.crew_size = 2 and j.my_hours = 4, format('connor job row %s', row_to_json(j));
-  raise notice 'ok  my_jobs shows even share, crew size and my clocked hours';
+  -- Day clock-ins aren't tied to jobs, so per-job hours are scheduled visit time (2.5h on V10).
+  assert j.my_revenue = 400 and j.crew_size = 2 and j.my_hours = 2.5 and j.hours_source = 'scheduled',
+    format('connor job row %s', row_to_json(j));
+  raise notice 'ok  my_jobs shows even share, crew size and scheduled hours per job';
 end $$;
 reset role;
 
