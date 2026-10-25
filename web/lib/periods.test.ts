@@ -21,3 +21,10 @@ test("uses Pacific date, not UTC, late at night", () => {
 });
 test("Sunday belongs to the week that started Monday", () =>
   assert.equal(resolvePeriod("week", new Date("2026-10-25T20:00:00Z")).from, "2026-10-19"));
+
+test("since Oct 24: from the day lead profiles carried phone numbers", () => {
+  const r = resolvePeriod("linked", new Date("2026-10-25T18:00:00Z"));
+  assert.equal(r.from, "2026-10-24");
+  assert.equal(r.to, "2026-10-25");
+  assert.equal(r.label, "Since Oct 24");
+});

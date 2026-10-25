@@ -46,7 +46,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
               <span className="small"> · Quo updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
             </p>
           </div>
-          <Periods current={period.key} base="/leads" />
+          <Periods current={period.key} base="/leads" linked />
         </div>
 
         {attention > 0 && (

@@ -1,6 +1,6 @@
 // Reporting periods, always on Pacific time (the business's day).
 
-export type PeriodKey = "week" | "month" | "last-month" | "30d" | "ytd";
+export type PeriodKey = "week" | "month" | "last-month" | "30d" | "ytd" | "linked";
 
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "week", label: "This week" },
@@ -9,6 +9,12 @@ export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "30d", label: "Last 30 days" },
   { key: "ytd", label: "Year to date" },
 ];
+
+/** Day Jobber lead profiles started carrying the lead's phone number, so
+ *  Quo leads can be matched to Jobber quotes and bookings from here on. */
+export const LINKED_START = "2026-10-24";
+/** Extra period, shown only on the Leads page. */
+export const LINKED_PERIOD: { key: PeriodKey; label: string } = { key: "linked", label: "Since Oct 24" };
 
 const TZ = "America/Los_Angeles";
 
@@ -28,7 +34,7 @@ const iso = (y: number, m: number, d: number) => {
 };
 
 export function resolvePeriod(key: string | undefined, now: Date = new Date()): { key: PeriodKey; from: string; to: string; label: string } {
-  const k = (PERIODS.find((p) => p.key === key)?.key ?? "month") as PeriodKey;
+  const k = ([...PERIODS, LINKED_PERIOD].find((p) => p.key === key)?.key ?? "month") as PeriodKey;
   const t = pacificToday(now);
   const today = iso(t.y, t.m, t.d);
   let from: string, to: string = today;
@@ -48,8 +54,11 @@ export function resolvePeriod(key: string | undefined, now: Date = new Date()): 
     case "ytd":
       from = iso(t.y, 1, 1);
       break;
+    case "linked":
+      from = LINKED_START < today ? LINKED_START : today;
+      break;
     default:
       from = iso(t.y, t.m, 1);
   }
-  return { key: k, from, to, label: PERIODS.find((p) => p.key === k)!.label };
+  return { key: k, from, to, label: [...PERIODS, LINKED_PERIOD].find((p) => p.key === k)!.label };
 }
