@@ -32,7 +32,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               <thead><tr>
                 <th>Person</th><th className="num">Revenue</th><th className="num">Jobs</th><th className="num">Hours</th>
                 <th className="num">Per hour</th><th className="num">Per day</th><th className="num">Upsells</th>
-                <th className="num">Plans</th><th className="num">Quotes won</th><th className="num">Callbacks</th>
+                <th className="num">Plans</th><th className="num">Quotes approved / sent</th><th className="num">Callbacks</th>
               </tr></thead>
               <tbody>
                 {ranked.map((s) => (
@@ -45,14 +45,14 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                     <td className="num">{money(s.revenue_per_day)}</td>
                     <td className="num">{money(s.upsell_revenue)}</td>
                     <td className="num">{n(s.plans_sold)}</td>
-                    <td className="num">{s.quotes_sent ? `${n(s.quotes_approved)} of ${n(s.quotes_sent)}` : "—"}</td>
+                    <td className="num">{s.quotes_sent || s.quotes_approved ? `${n(s.quotes_approved)} / ${n(s.quotes_sent)}` : "—"}</td>
                     <td className={`num${s.callbacks ? " down" : ""}`}>{n(s.callbacks)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="muted small">Shared jobs are split evenly between everyone assigned. Hours are clocked time for people who clock in, and scheduled visit time (est.) for people who don&rsquo;t. Compare people with similar roles and job mix.</p>
+          <p className="muted small">Shared jobs are split evenly between everyone assigned. Hours are clocked time for people who clock in, and scheduled visit time (est.) for people who don&rsquo;t. Quotes count as approved in the period they were approved and as sent in the period they were sent. Compare people with similar roles and job mix.</p>
         </section>
 
         <section className="section" aria-labelledby="comm-h">

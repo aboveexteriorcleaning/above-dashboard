@@ -48,7 +48,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               <section aria-labelledby="sales">
                 <div className="section-head"><h2 id="sales">Quotes</h2><span className="muted small">{n(o.leads.requests)} new requests</span></div>
                 <div className="stats">
-                  <Stat value={pct(o.quotes.win_rate)} label="Win rate" note={`${n(o.quotes.won)} of ${n(o.quotes.sent)} sent`} />
+                  <Stat value={pct(o.quotes.win_rate)} label="Approval rate" note={`${n(o.quotes.won)} approved, ${n(o.quotes.sent)} sent this period`} />
                   <Stat value={hours(o.quotes.median_turnaround_hours)} label="Request to quote" note={o.quotes.turnaround_sample ? `Median of ${n(o.quotes.turnaround_sample)} quotes` : "No linked requests yet"} />
                   <Stat value={money(o.quotes.open_value)} label="Still waiting" note="Sent this period, not yet approved" />
                 </div>

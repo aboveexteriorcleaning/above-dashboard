@@ -367,4 +367,39 @@ do $$ declare s record; begin
 end $$;
 reset role;
 
+
+-- ================= QUOTES: sent and approved counted in their own periods =================
+-- Already present: Q1 sent Oct 1, approved Oct 2.
+insert into public.quotes (id,client_id,salesperson_id,status,total,created_at,sent_at,approved_at) values
+ ('QS','C1','11111111-0000-0000-0000-00000000000a','converted',500,'2026-09-25 18:00Z','2026-09-25 19:00Z','2026-10-05 19:00Z'), -- Sep -> Oct
+ ('QO','C2','11111111-0000-0000-0000-00000000000a','approved', 700,'2026-10-20 18:00Z','2026-10-20 19:00Z','2026-11-03 19:00Z'), -- Oct -> Nov
+ ('QN','C2','11111111-0000-0000-0000-00000000000a','approved', 300,'2026-10-10 18:00Z', null,              '2026-10-10 20:00Z'), -- never sent
+ ('QD','C2','11111111-0000-0000-0000-00000000000a','deleted',  900,'2026-10-11 18:00Z','2026-10-11 19:00Z', null);              -- deleted: ignored
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; k record; begin
+  o := public.owner_overview('2026-10-01','2026-10-31');
+  -- October sent: Q1, QO, QN (QD deleted). October approved: Q1, QS, QN.
+  assert (o->'quotes'->>'sent')::int = 3 and (o->'quotes'->>'won')::int = 3,
+    format('october quotes %s', o->'quotes');
+  o := public.owner_overview('2026-09-01','2026-09-30');
+  assert (o->'quotes'->>'sent')::int = 1 and (o->'quotes'->>'won')::int = 0, format('september quotes %s', o->'quotes');
+  o := public.owner_overview('2026-11-01','2026-11-30');
+  assert (o->'quotes'->>'sent')::int = 0 and (o->'quotes'->>'won')::int = 1, format('november quotes %s', o->'quotes');
+  select * into k from public.team_scorecards('2026-10-01','2026-10-31') where full_name = 'Kale (test)';
+  assert k.quotes_sent = 3 and k.quotes_approved = 3, format('team kale october %s of %s', k.quotes_approved, k.quotes_sent);
+  raise notice 'ok  quotes: sent and approved each counted in their own period, on Overview and Team';
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare c record; begin
+  select * into c from public.company_summary('2026-10-01','2026-10-31');
+  assert c.quotes_sent = 3 and c.quotes_approved = 3, format('crew company totals %s of %s', c.quotes_approved, c.quotes_sent);
+  raise notice 'ok  quotes: crew company totals use the same rule';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

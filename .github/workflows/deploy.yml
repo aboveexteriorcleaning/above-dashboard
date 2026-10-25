@@ -58,6 +58,7 @@ jobs:
                    supabase/migrations/20261024000007_even_split_credit.sql \
                    supabase/migrations/20261024000008_job_list_hours.sql \
                    supabase/migrations/20261024000009_commission.sql \
+                   supabase/migrations/20261024000010_quotes_cut_and_dry.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -77,7 +78,8 @@ jobs:
                    ../migrations/20261024000006_dashboard_metrics.sql \
                    ../migrations/20261024000007_even_split_credit.sql \
                    ../migrations/20261024000008_job_list_hours.sql \
-                   ../migrations/20261024000009_commission.sql; do
+                   ../migrations/20261024000009_commission.sql \
+                   ../migrations/20261024000010_quotes_cut_and_dry.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/

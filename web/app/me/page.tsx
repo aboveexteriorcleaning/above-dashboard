@@ -113,7 +113,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
           <div className="stats">
             <Stat value={money(me.upsell_revenue)} label="Upsells" note="Services added on site, plus optional items you sold on quotes" />
             <Stat value={n(me.plans_sold)} label="Maintenance plans sold" />
-            {me.quotes_sent > 0 && <Stat value={`${n(me.quotes_approved)} of ${n(me.quotes_sent)}`} label="Your quotes approved" />}
+            {(me.quotes_sent > 0 || me.quotes_approved > 0) && <Stat value={`${n(me.quotes_approved)} / ${n(me.quotes_sent)}`} label="Your quotes approved / sent" />}
             <Stat value={n(me.callbacks)} label="Callbacks on your jobs" tone={me.callbacks > 0 ? "down" : undefined} />
           </div>
         </section>
@@ -145,7 +145,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
             <Stat value={money(co.completed_revenue)} label="Completed revenue" note={`${n(co.completed_jobs)} jobs`} />
             <Stat value={money(co.booked_next_30_days)} label="Booked, next 30 days" />
             <Stat value={n(co.new_clients)} label="New customers" />
-            <Stat value={pct(co.quote_approval_rate)} label="Quotes approved" note={`${n(co.quotes_approved)} of ${n(co.quotes_sent)}`} />
+            <Stat value={pct(co.quote_approval_rate)} label="Quote approval rate" note={`${n(co.quotes_approved)} approved, ${n(co.quotes_sent)} sent`} />
             <Stat value={n(co.active_plans)} label="Customers on plans" />
           </div>
         </section>
