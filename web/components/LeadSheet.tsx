@@ -86,7 +86,7 @@ export function LeadSheet({ rows }: { rows: Lead[] }) {
                     <div className="cell-strong">{name ? (url ? <a href={url} target="_blank" rel="noreferrer">{name}</a> : name) : phone(r.contact_phone)}</div>
                     {name && <div className="small muted">{phone(r.contact_phone)}</div>}
                   </td>
-                  <td className="date">{when(r.lead_at)}{!r.in_hours && <div className="small muted">After hours</div>}</td>
+                  <td className="date">{when(r.lead_at)}{!r.in_hours && <div className="small muted">After hours (7pm–7am)</div>}</td>
                   <td>{r.source}{r.line_name && <div className="small muted">{r.line_name}</div>}</td>
                   <td><span className={`status ${tone}`}>{label}</span></td>
                   <td className="date">{mins(r.response_minutes)}{r.responded_by && <div className="small muted">{r.responded_by}</div>}</td>

@@ -61,7 +61,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <div className="stats">
             <Stat value={n(k.leads)} label="New leads" note={k.by_source.slice(0, 3).map((s) => `${s.leads} ${s.source.toLowerCase()}`).join(", ") || undefined} />
             <Stat value={minutes(k.median_response_min)} label="Speed to lead"
-              note={`Median first reply${k.within_5_min != null ? `; ${pct(k.within_5_min)} within 5 min` : ""}${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads during business hours` : ""}`} />
+              note={`Median first reply${k.within_5_min != null ? `; ${pct(k.within_5_min)} within 5 min` : ""}${k.median_response_min_in_hours != null ? `; ${minutes(k.median_response_min_in_hours)} for leads between 7am and 7pm` : ""}`} />
             <Stat value={pct(k.leads ? k.quoted / k.leads : null)} label="Got a quote" note={`${n(k.quoted)} of ${n(k.leads)} leads`} />
             <Stat value={pct(k.leads ? k.booked / k.leads : null)} label="Booked" note={`${n(k.booked)} leads, ${money(k.booked_value)} of work`} />
           </div>

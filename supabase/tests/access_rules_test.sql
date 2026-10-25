@@ -619,7 +619,19 @@ do $$ declare o jsonb; p jsonb; begin
   assert (p->>'calls_answered')::int = 2 and (p->>'calls_made')::int = 2 and (p->>'texts_sent')::int = 1, format('kale %s', p);
   assert (select count(*) from public.lead_list('2026-12-01','2026-12-31')) = 5, 'lead list';
   assert (select source from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551003') = 'Form (auto-text)', 'form source';
+  -- 9am and 10am Pacific leads are in hours; add a 9:30pm one below and check it isn't
+  assert (select bool_and(in_hours) from public.lead_list('2026-12-01','2026-12-31')), 'daytime leads in business hours';
   raise notice 'ok  quo: leads, speed to lead, missed calls and booked work';
+end $$;
+reset role;
+
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, phone_number_id)
+values ('cH', 'call', 'inbound', '+13605551008', '2026-12-07 05:30Z', '2026-12-07 05:30:02Z', 60, 'PN1');  -- Sun 9:30pm Pacific
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ begin
+  assert not (select in_hours from public.lead_list('2026-12-01','2026-12-31') where contact_phone = '+13605551008'), '9:30pm is after hours';
+  raise notice 'ok  quo: business hours are 7am-7pm every day';
 end $$;
 reset role;
 
