@@ -1,9 +1,12 @@
 // Google reviews sync, read-only.
-//   POST ?mode=check   -> list the connected account's locations (names only); saves nothing
-//   POST (default)     -> read reviews (all on the first run, then the newest until nothing has changed)
+//   POST ?mode=check   -> confirm the connection; saves nothing
+//   POST (default)     -> read reviews
+// Two sources: the Business Profile API (if approved and connected: every review, plus
+// replies), otherwise the Places API with GOOGLE_PLACE_ID + GOOGLE_PLACES_API_KEY
+// (rating, review count and the 5 newest reviews each run; history builds up over time).
 // Requires header  x-sync-key: <SYNC_KEY secret>.
 import { db, upsert } from "../_shared/db.ts";
-import { googleGet, locationsUrl, mapReview, reviewsUrl } from "../_shared/google.ts";
+import { googleGet, locationsUrl, mapPlaceReview, mapReview, placesGet, reviewsUrl } from "../_shared/google.ts";
 import { markSync } from "../_shared/store.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -23,7 +26,11 @@ Deno.serve(async (req) => {
   try {
     const sql = db();
     const [tok] = await sql`select account_id from private.integration_tokens where provider = 'google'`;
-    if (!tok) return json({ ok: true, skipped: "Google isn't connected yet" });
+    if (!tok) {
+      const placeId = Deno.env.get("GOOGLE_PLACE_ID");
+      if (!placeId || !Deno.env.get("GOOGLE_PLACES_API_KEY")) return json({ ok: true, skipped: "Google isn't connected yet" });
+      return json(await syncPlace(placeId, mode === "check"));
+    }
     const accountNum = String(tok.account_id).replace(/^accounts\//, "");
     const locations = await listLocations(accountNum);
     if (mode === "check") {
@@ -74,6 +81,28 @@ async function syncLocation(accountNum: string, locationNum: string) {
   await sql`insert into public.google_review_totals (location_id, average_rating, total_reviews, updated_at)
             values (${locationNum}, ${average}, ${total}, now())
             on conflict (location_id) do update set average_rating = excluded.average_rating,
-              total_reviews = excluded.total_reviews, updated_at = now()`;
+              total_reviews = excluded.total_reviews, source = 'business_profile', updated_at = now()`;
   return { saved, average, total };
+}
+
+async function syncPlace(placeId: string, checkOnly: boolean) {
+  const sql = db();
+  const p = await placesGet(placeId);
+  const rows = (p.reviews ?? []).map((r: any) => mapPlaceReview(r, placeId)).filter((r: any) => r.created_at);
+  if (checkOnly) {
+    return { ok: true, source: "places", name: p.displayName?.text ?? null, rating: p.rating ?? null,
+             total_reviews: p.userRatingCount ?? null, newest_reviews_returned: rows.length };
+  }
+  // Insert new reviews; never overwrite (Places has no edit history or replies).
+  if (rows.length) {
+    await sql`insert into public.google_reviews ${sql(rows as any)} on conflict (id) do update
+              set stars = excluded.stars, comment = excluded.comment, synced_at = now()`;
+  }
+  await sql`insert into public.google_review_totals (location_id, average_rating, total_reviews, source, updated_at)
+            values (${placeId}, ${p.rating ?? null}, ${p.userRatingCount ?? null}, 'places', now())
+            on conflict (location_id) do update set average_rating = excluded.average_rating,
+              total_reviews = excluded.total_reviews, source = 'places', updated_at = now()`;
+  await sql`select app.refresh_reviews()`;
+  await markSync("google", true);
+  return { ok: true, done: true, source: "places", seen: rows.length, rating: p.rating ?? null, total: p.userRatingCount ?? null };
 }

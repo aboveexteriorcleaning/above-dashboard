@@ -68,7 +68,9 @@ export default async function Quality({ searchParams }: { searchParams: Promise<
                 <Stat value={rv.average == null ? "—" : `${rv.average} ★`} label="Average rating" note={`${n(rv.reviews)} new reviews this period`} />
                 <Stat value={rv.completed_jobs ? (rv.five_star / rv.completed_jobs * 100).toFixed(1) : "—"} label="Five-star reviews per 100 jobs" note={`${n(rv.five_star)} five-star, ${n(rv.completed_jobs)} completed jobs`} />
                 <Stat value={pct(rv.requests ? rv.reviews / rv.requests : null)} label="Review request conversion" note={`${n(rv.reviews)} reviews from ${n(rv.requests)} people sent a review link in Quo`} />
-                <Stat value={pct(rv.reviews ? rv.replied / rv.reviews : null)} label="Replied to" note={rv.reply_hours != null ? `Median ${rv.reply_hours} hr to reply` : undefined} />
+                {rv.source === "places"
+                  ? <Stat value="—" label="Replied to" note="Google's public listing data doesn't include owner replies" />
+                  : <Stat value={pct(rv.reviews ? rv.replied / rv.reviews : null)} label="Replied to" note={rv.reply_hours != null ? `Median ${rv.reply_hours} hr to reply` : undefined} />}
                 <Stat value={n(rv.low)} label="3 stars or fewer" tone={rv.low ? "down" : undefined} />
               </div>
               <div className="grid-2 section">
@@ -80,14 +82,14 @@ export default async function Quality({ searchParams }: { searchParams: Promise<
                       <tbody>{rv.by_person.map((p) => <tr key={p.name}><td>{p.name}</td><td className="num">{n(p.reviews)}</td><td className="num">{p.average} ★</td><td className="num">{n(p.five_star)}</td></tr>)}</tbody>
                     </table>
                   ) : <p className="muted">No reviews matched to a job yet.</p>}
-                  <p className="muted small">A review is matched when the reviewer&rsquo;s name (full name, or first name and last initial) matches a client who had a job done in the 60 days before.</p>
+                  <p className="muted small">{rv.source === "places" ? "Reviews are collected from Google every 3 hours (the newest 5 each time), so history builds up from the day this was connected. " : ""}A review is matched when the reviewer&rsquo;s name (full name, or first name and last initial) matches a client who had a job done in the 60 days before.</p>
                 </section>
                 <section aria-labelledby="rr-h">
                   <div className="section-head"><h3 id="rr-h">Latest reviews</h3></div>
                   {rv.recent.length ? (
                     <ul className="reviews">{rv.recent.map((r) => (
                       <li key={r.id}>
-                        <div><strong className={r.stars != null && r.stars <= 3 ? "down" : undefined}>{"★".repeat(r.stars ?? 0)}{"☆".repeat(5 - (r.stars ?? 0))}</strong> <span className="small muted">{r.reviewer_name ?? "Anonymous"}, {shortDate(r.created_at)}{r.crew ? ` · ${r.crew}` : ""}{r.replied ? "" : " · not replied"}</span></div>
+                        <div><strong className={r.stars != null && r.stars <= 3 ? "down" : undefined}>{"★".repeat(r.stars ?? 0)}{"☆".repeat(5 - (r.stars ?? 0))}</strong> <span className="small muted">{r.reviewer_name ?? "Anonymous"}, {shortDate(r.created_at)}{r.crew ? ` · ${r.crew}` : ""}{r.replied || rv.source === "places" ? "" : " · not replied"}</span></div>
                         {r.comment && <p className="small" style={{ margin: "4px 0 0" }}>{r.comment}</p>}
                       </li>
                     ))}</ul>

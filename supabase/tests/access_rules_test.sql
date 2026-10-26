@@ -884,7 +884,7 @@ do $$ begin
   raise notice 'ok  reviews: reviewer names match full names or first name + last initial only';
 end $$;
 update public.clients set name = 'Jane Doe' where id = 'C20';      -- JS1 on Oct 15, Connor + Sage
-insert into public.google_review_totals values ('L1', 4.80, 120, now());
+insert into public.google_review_totals (location_id, average_rating, total_reviews, source, updated_at) values ('L1', 4.80, 120, 'places', now());
 insert into public.google_reviews (id, location_id, stars, reviewer_name, comment, created_at, updated_at, replied_at) values
  ('GR1', 'L1', 5, 'Jane D.', 'Spotless windows', '2026-10-18 18:00Z', '2026-10-18 18:00Z', '2026-10-18 20:00Z'),
  ('GR2', 'L1', 2, 'John Smith', 'Late', '2026-10-20 18:00Z', '2026-10-20 18:00Z', null);
@@ -906,6 +906,7 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ declare r jsonb; p jsonb; begin
   r := public.owner_reviews('2026-10-01','2026-10-31');
   assert (r->>'reviews')::int = 2 and (r->>'average')::numeric = 3.5 and (r->>'five_star')::int = 1 and (r->>'average_all')::numeric = 4.8, format('reviews %s', r);
+  assert (r->>'source') = 'places', 'source shown';
   assert (r->>'matched')::int = 1 and (r->>'requests')::int = 1 and (r->>'replied')::int = 1 and (r->>'reply_hours')::numeric = 2, format('reviews detail %s', r);
   select x into p from jsonb_array_elements(r->'by_person') x where x->>'name' = 'Connor (test)';
   assert (p->>'reviews')::int = 1, format('crew credit %s', r->'by_person');

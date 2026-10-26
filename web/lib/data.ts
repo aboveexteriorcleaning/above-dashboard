@@ -364,7 +364,7 @@ export async function getSettings(): Promise<FinancialKpis["settings"]> {
 
 // ---------- Google reviews ----------
 export type ReviewKpis = {
-  connected: boolean; average_all: number | null; total_all: number | null; reviews: number; average: number | null;
+  connected: boolean; source: string | null; average_all: number | null; total_all: number | null; reviews: number; average: number | null;
   five_star: number; low: number; completed_jobs: number; replied: number; reply_hours: number | null; requests: number; matched: number;
   by_person: { name: string; reviews: number; average: number; five_star: number }[];
   recent: { id: string; stars: number | null; reviewer_name: string | null; created_at: string; comment: string | null; replied: boolean; crew: string | null }[];

@@ -79,6 +79,7 @@ jobs:
                    supabase/migrations/20261025000028_revenue.sql \
                    supabase/migrations/20261025000029_financial.sql \
                    supabase/migrations/20261025000030_google_reviews.sql \
+                   supabase/migrations/20261025000031_places_reviews.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -119,7 +120,8 @@ jobs:
                    ../migrations/20261025000027_operations.sql \
                    ../migrations/20261025000028_revenue.sql \
                    ../migrations/20261025000029_financial.sql \
-                   ../migrations/20261025000030_google_reviews.sql; do
+                   ../migrations/20261025000030_google_reviews.sql \
+                   ../migrations/20261025000031_places_reviews.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/

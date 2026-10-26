@@ -312,7 +312,7 @@ export const alerts = (): Alerts => ({
 });
 
 export const reviews = (): ReviewKpis => ({
-  connected: true, average_all: 4.9, total_all: 187, reviews: 9, average: 4.78, five_star: 8, low: 1, completed_jobs: 37,
+  connected: true, source: "places", average_all: 4.9, total_all: 187, reviews: 9, average: 4.78, five_star: 8, low: 1, completed_jobs: 37,
   replied: 7, reply_hours: 5.5, requests: 24, matched: 6,
   by_person: [{ name: "Crew member A", reviews: 5, average: 5, five_star: 5 }, { name: "Crew member B", reviews: 3, average: 4.67, five_star: 2 }],
   recent: [

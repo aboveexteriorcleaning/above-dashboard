@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
-import { assertGoogleRequest, GoogleReadOnlyViolation, mapReview, reviewsUrl } from "../_shared/google.ts";
+import { assertGoogleRequest, GoogleReadOnlyViolation, mapPlaceReview, mapReview, placeUrl, placesGet, reviewsUrl } from "../_shared/google.ts";
 
 const GET: RequestInit = { method: "GET", redirect: "error" };
 Deno.test("google guard: GET only, three read paths only", () => {
@@ -46,7 +46,33 @@ Deno.test("google tripwire: no other code touches Google's APIs", async () => {
   await walk("");
   assertEquals(hits, [], `Google referenced outside the read-only client: ${hits.join(", ")}`);
   const client = await Deno.readTextFile(root + "supabase/functions/_shared/google.ts");
-  const methods = [...client.matchAll(/method:\s*"([A-Z]+)"/g)].map((m) => m[1]).sort();
-  assertEquals(methods, ["GET", "POST"], "only GET reads plus the one token POST");
+  const methods = [...client.matchAll(/method:\s*"([A-Z]+)"/g)].map((m) => m[1]);
+  assertEquals([...new Set(methods)].sort(), ["GET", "POST"], "only GET reads plus the token POST");
+  assertEquals(methods.filter((m) => m === "POST").length, 1, "exactly one POST: the sign-in token request");
   assert(/TOKEN_URL[\s\S]*method:\s*"POST"/.test(client));
+});
+
+Deno.test("places: GET one place, key in a header, nothing else", async () => {
+  assertGoogleRequest(placeUrl("ChIJabc123_-x"), GET);
+  for (const [u, init] of [
+    ["https://places.googleapis.com/v1/places:searchText", { ...GET, method: "POST" }],
+    ["https://places.googleapis.com/v1/places/ChIJabc/photos/x/media", GET],
+    ["https://places.googleapis.com/v1/places/ChIJabc?key=AIza", GET],
+    ["https://places.googleapis.com/v1/places/ChIJabc", { ...GET, method: "PATCH" }],
+  ] as [string, RequestInit][]) assertThrows(() => assertGoogleRequest(new URL(u), init), GoogleReadOnlyViolation, undefined, u);
+  assertThrows(() => placeUrl("../accounts"), GoogleReadOnlyViolation);
+  Deno.env.set("GOOGLE_PLACES_API_KEY", "AIzaTEST");
+  let seen: Request | null = null;
+  const fake = (async (url: URL, init: RequestInit) => { seen = new Request(url, init); return new Response(JSON.stringify({ rating: 4.9 }), { status: 200 }); }) as unknown as typeof fetch;
+  const p = await placesGet("ChIJabc", fake);
+  assertEquals(p.rating, 4.9);
+  assertEquals(seen!.method, "GET");
+  assertEquals(seen!.headers.get("X-Goog-Api-Key"), "AIzaTEST");
+  assert(!seen!.url.includes("AIza"));
+});
+
+Deno.test("places reviews map to stars, name and date", () => {
+  const r = mapPlaceReview({ name: "places/X/reviews/R9", rating: 5, text: { text: "Great" }, originalText: { text: "Great!" },
+    authorAttribution: { displayName: "Jane Doe" }, publishTime: "2026-10-20T18:00:00Z" }, "X");
+  assertEquals([r.id, r.stars, r.reviewer_name, r.comment, r.created_at, r.replied_at], ["places/X/reviews/R9", 5, "Jane Doe", "Great!", "2026-10-20T18:00:00Z", null]);
 });

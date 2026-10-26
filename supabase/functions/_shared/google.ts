@@ -16,6 +16,8 @@ const READ_RULES: { origin: string; path: RegExp }[] = [
   { origin: "https://mybusinessaccountmanagement.googleapis.com", path: /^\/v1\/accounts$/ },
   { origin: "https://mybusinessbusinessinformation.googleapis.com", path: /^\/v1\/accounts\/\d+\/locations$/ },
   { origin: "https://mybusiness.googleapis.com", path: /^\/v4\/accounts\/\d+\/locations\/\d+\/reviews$/ },
+  // Places API: public listing details (rating, review count, newest reviews) for one place.
+  { origin: "https://places.googleapis.com", path: /^\/v1\/places\/[A-Za-z0-9_-]+$/ },
 ];
 
 export function assertGoogleRequest(url: URL, init: RequestInit): void {
@@ -26,7 +28,7 @@ export function assertGoogleRequest(url: URL, init: RequestInit): void {
   }
   if (init.method !== "GET") throw new GoogleReadOnlyViolation(`Blocked: only GET requests may be sent to Google (got ${init.method}).`);
   if (init.body != null) throw new GoogleReadOnlyViolation("Blocked: Google requests may not carry a body.");
-  if (url.searchParams.has("access_token") || url.searchParams.has("$method")) throw new GoogleReadOnlyViolation("Blocked: no tokens or method overrides in the URL.");
+  if (url.searchParams.has("access_token") || url.searchParams.has("$method") || url.searchParams.has("key")) throw new GoogleReadOnlyViolation("Blocked: no tokens or method overrides in the URL.");
   const ok = READ_RULES.some((r) => r.origin === url.origin && r.path.test(url.pathname));
   if (!ok) throw new GoogleReadOnlyViolation(`Blocked: ${url.origin}${url.pathname} is not a read-only reviews path.`);
 }
@@ -112,6 +114,41 @@ export function mapReview(r: any, locationNum: string) {
     created_at: r.createTime,
     updated_at: r.updateTime ?? r.createTime,
     replied_at: r.reviewReply?.updateTime ?? null,
+    synced_at: new Date().toISOString(),
+  };
+}
+
+// ---------------- Places API (API key; public data only, cannot change anything) ----------------
+export const PLACE_FIELDS = "id,displayName,rating,userRatingCount,reviews";
+export function placeUrl(placeId: string) {
+  if (!/^[A-Za-z0-9_-]+$/.test(placeId)) throw new GoogleReadOnlyViolation("Blocked: that doesn't look like a Place ID.");
+  return new URL(`https://places.googleapis.com/v1/places/${placeId}`);
+}
+export async function placesGet(placeId: string, fetcher: typeof fetch = fetch, attempt = 0): Promise<any> {
+  const url = placeUrl(placeId);
+  const init: RequestInit = { method: "GET", redirect: "error",
+    headers: { "X-Goog-Api-Key": env("GOOGLE_PLACES_API_KEY"), "X-Goog-FieldMask": PLACE_FIELDS, Accept: "application/json" } };
+  assertGoogleRequest(url, init);
+  const res = await fetcher(url, init);
+  if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+    await res.body?.cancel(); await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
+    return placesGet(placeId, fetcher, attempt + 1);
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Google Places failed: HTTP ${res.status} ${body?.error?.message ?? ""}`.trim());
+  return body;
+}
+export function mapPlaceReview(r: any, placeId: string) {
+  const when = r.publishTime ?? null;
+  return {
+    id: String(r.name ?? `${placeId}:${r.authorAttribution?.displayName}:${when}`),
+    location_id: placeId,
+    stars: typeof r.rating === "number" ? Math.round(r.rating) : null,
+    reviewer_name: r.authorAttribution?.displayName ?? null,
+    comment: r.originalText?.text ?? r.text?.text ?? null,
+    created_at: when,
+    updated_at: when,
+    replied_at: null,
     synced_at: new Date().toISOString(),
   };
 }

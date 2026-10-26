@@ -68,7 +68,11 @@ lock: GET only, and only to list accounts, list locations, and list a
 location's reviews. The single POST allowed is to Google's token endpoint. A
 tripwire test fails the deploy if Google is reached from anywhere else.
 
-Setup: Google must approve Business Profile API access for the Cloud project.
+Without Business Profile approval, set `GOOGLE_PLACE_ID` and `GOOGLE_PLACES_API_KEY`
+instead: the sync reads the public listing (rating, review count, newest 5 reviews)
+from the Places API with a key that can't change anything.
+
+Setup for full access: Google must approve Business Profile API access for the Cloud project.
 Then add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SETUP_KEY`
 secrets, deploy, open `<project>/functions/v1/google-connect?key=<GOOGLE_SETUP_KEY>`
 once, and run Actions → Sync → `google-check`, then `google-sync`. After that it
