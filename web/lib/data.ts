@@ -203,7 +203,8 @@ export type LeadKpis = {
   follow_up: { fu1_due: number; fu1_done: number; fu2_due: number; fu2_done: number; followed_up: number;
     followed_up_replied: number; followed_up_booked: number; followed_up_matched: number };
   follow_ups_due_now: number; not_converted: number; got_both_follow_ups: number;
-  contact_rate: number | null; two_way: number; avg_attempts: number | null; unworked: number; median_first_any_min: number | null;
+  contact_rate: number | null; two_way: number; unworked: number;
+  reach: { leads: number; avg_attempts: number | null; first_try: number; two_three: number; four_plus: number; came_back: number; never: number; still_trying: number }; median_first_any_min: number | null;
   lead_to_booking_days: number | null; touches_before_booking: number | null;
   by_zip: { zip: string; leads: number; booked: number; revenue: number; revenue_per_lead: number }[];
   quote_speed: { quoted: number; avg_hours: number | null; median_hours: number | null; fast_quoted: number; fast_booked: number; slow_quoted: number; slow_booked: number };

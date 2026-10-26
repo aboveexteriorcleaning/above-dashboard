@@ -914,4 +914,31 @@ do $$ declare r jsonb; p jsonb; begin
 end $$;
 reset role;
 
+-- ---------- contact attempts (September form leads; every 7-day window is over) ----------
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare r jsonb; begin
+  r := public.owner_leads('2026-09-01','2026-09-30')->'reach';
+  -- 2001: text + call, then they replied -> 2 attempts, reached
+  -- 2002: never followed up -> 0, never reached;  2003: one follow-up -> 1, never reached
+  -- 2004: replied to the auto-text on their own -> came back, 0 attempts;  2005: two follow-ups -> 2, never reached
+  assert (r->>'leads')::int = 5 and (r->>'avg_attempts')::numeric = 1.0, format('reach %s', r);
+  assert (r->>'two_three')::int = 1 and (r->>'came_back')::int = 1 and (r->>'never')::int = 3 and (r->>'first_try')::int = 0, format('reach buckets %s', r);
+  raise notice 'ok  leads: contact attempts count only leads we had to chase, never-reached included';
+end $$;
+reset role;
+-- a call, voicemail and text within 10 minutes count as one attempt; the call that gets through counts
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, answered_at, duration_sec, quo_user_id, phone_number_id) values
+ ('at1', 'call',    'inbound',  '+13605553001', '2026-09-10 17:00Z', null, 30, null, 'PN1'),                       -- they call, we miss it (voicemail)
+ ('at2', 'call',    'outbound', '+13605553001', '2026-09-10 18:00Z', null, 20, 'USK', 'PN1'),                       -- we call back, no answer
+ ('at3', 'message', 'outbound', '+13605553001', '2026-09-10 18:02Z', null, null, 'USK', 'PN1'),                     -- + text right after
+ ('at4', 'call',    'outbound', '+13605553001', '2026-09-11 17:00Z', '2026-09-11 17:00:05Z', 90, 'USK', 'PN1');     -- next day: answered
+update public.communications set has_voicemail = true where id = 'at1';
+select app.refresh_quo();
+do $$ declare n int; begin
+  select attempts into n from app.quo_leads where contact_phone = '+13605553001';   -- (checked as the database owner)
+  assert n = 2, format('grouped attempts %s', n);
+  raise notice 'ok  leads: touches within 10 minutes count once';
+end $$;
+
 \echo ALL ACCESS TESTS PASSED

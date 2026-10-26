@@ -71,10 +71,13 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
         </section>
 
         <section className="section" aria-labelledby="contact-h">
-          <div className="section-head"><h2 id="contact-h">Working the leads</h2></div>
+          <div className="section-head"><h2 id="contact-h">Working the leads</h2><span className="muted small">Attempts: calls and texts by a person within 7 days, before the first conversation; touches within 10 minutes count once</span></div>
           <div className="stats">
             <Stat value={pct(k.contact_rate)} label="Contact rate" note={`${n(k.two_way)} of ${n(k.leads)} leads had a real two-way conversation`} />
-            <Stat value={k.avg_attempts == null ? "—" : String(k.avg_attempts)} label="Contact attempts per lead" note="Calls and texts by a person before reaching them" />
+            <Stat value={k.reach.avg_attempts == null ? "—" : String(k.reach.avg_attempts)} label="Attempts to reach a lead"
+              note={`${n(k.reach.leads)} leads we had to reach out to: ${n(k.reach.first_try)} reached first try, ${n(k.reach.two_three)} in 2–3, ${n(k.reach.four_plus)} in 4+, ${n(k.reach.came_back)} came back on their own`} />
+            <Stat value={pct(k.reach.leads ? k.reach.never / k.reach.leads : null)} label="Never reached" tone={k.reach.never ? "down" : undefined}
+              note={`${n(k.reach.never)} with no conversation within 7 days${k.reach.still_trying ? `; ${n(k.reach.still_trying)} newer leads still in their first week` : ""}`} />
             <Stat value={pct(k.leads ? k.unworked / k.leads : null)} label="Unworked leads" note={`${n(k.unworked)} leads never got a call or text from a person`} tone={k.unworked ? "down" : undefined} />
             <Stat value={minutes(k.median_first_any_min)} label="First response, automatic included" note="Calls and texts that came in; form leads get the auto-text instantly" />
             <Stat value={k.lead_to_booking_days == null ? "—" : `${k.lead_to_booking_days} days`} label="Lead to booking" note={`Median; ${k.touches_before_booking ?? "—"} touches before booking on average (matched by phone)`} />
