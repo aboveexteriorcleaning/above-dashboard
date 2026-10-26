@@ -240,7 +240,9 @@ export function ads(): AdsKpis {
 
 export const sales = (): SalesKpis => ({
   sent: 64, sent_value: 58210, approved: 29, approved_value: 24870, avg_approved_value: 857.6, days_to_approve: 1.5, lost: 9, lost_value: 8420,
-  waiting: { count: 31, value: 27390, d0_7: 9840, d8_30: 8150, d31_plus: 9400 },
+  waiting_period: { count: 19, value: 16420 },
+  pipeline: { count: 26, value: 22140, d0_7: 9840, d8_30: 8150, d31_90: 4150 },
+  stale: { count: 14, value: 11870 },
   discount: { pre_discount: 61300, discount: 3090, plan_discount: 1650, rate: 0.05, with_discount_sent: 18, with_discount_won: 11, without_discount_sent: 46, without_discount_won: 18 },
   follow_up: { needed: 22, followed_up: 15, no_phone: 9 },
   by_salesperson: [{ name: "Sample Owner", sent: 41, approved: 19, approved_value: 16020 }, { name: "Second Owner", sent: 23, approved: 10, approved_value: 8850 }],

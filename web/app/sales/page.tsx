@@ -13,7 +13,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
   const s = await getSales(period.from, period.to);
-  const d = s.discount, fu = s.follow_up, w = s.waiting;
+  const d = s.discount, fu = s.follow_up, w = s.pipeline;
 
   return (
     <Shell page="sales" session={session}>
@@ -38,17 +38,23 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
 
         <div className="grid-2 section">
           <section aria-labelledby="wait-h">
-            <div className="section-head"><h2 id="wait-h">Still waiting</h2><span className="muted small">All open quotes, as of now</span></div>
+            <div className="section-head"><h2 id="wait-h">Still waiting</h2><span className="muted small">No reply yet; customers who booked another option left out</span></div>
             <div className="stats">
-              <Stat value={money(w.value)} label="Unbooked quote value" note={`${n(w.count)} quotes awaiting a response`} />
+              <Stat value={money(s.waiting_period.value)} label="Sent this period, still waiting" note={`${n(s.waiting_period.count)} quotes`} />
+              <Stat value={money(w.value)} label="Open pipeline" note={`${n(w.count)} quotes sent in the last 90 days, as of now`} />
             </div>
             <table className="rows" style={{ marginTop: 16 }}>
               <tbody>
                 <tr><td>Sent in the last 7 days</td><td className="num">{money(w.d0_7)}</td></tr>
                 <tr><td>8 to 30 days ago</td><td className="num">{money(w.d8_30)}</td></tr>
-                <tr><td>Over 30 days ago</td><td className="num">{money(w.d31_plus)}</td></tr>
+                <tr><td>31 to 90 days ago</td><td className="num">{money(w.d31_90)}</td></tr>
               </tbody>
             </table>
+            {s.stale.count > 0 && (
+              <p className="muted small" style={{ maxWidth: "60ch" }}>
+                Not counted: {n(s.stale.count)} quotes ({money(s.stale.value)}) waiting over 90 days. They&rsquo;re probably dead; archiving them in Jobber keeps this list clean.
+              </p>
+            )}
           </section>
           <section aria-labelledby="disc-h">
             <div className="section-head"><h2 id="disc-h">Discounts</h2><span className="muted small">Quotes sent this period</span></div>

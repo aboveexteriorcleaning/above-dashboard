@@ -264,7 +264,9 @@ export async function getMetaFreshness(): Promise<QuoFreshness> {
 export type SalesKpis = {
   sent: number; sent_value: number; approved: number; approved_value: number; avg_approved_value: number | null;
   days_to_approve: number | null; lost: number; lost_value: number;
-  waiting: { count: number; value: number; d0_7: number; d8_30: number; d31_plus: number };
+  waiting_period: { count: number; value: number };
+  pipeline: { count: number; value: number; d0_7: number; d8_30: number; d31_90: number };
+  stale: { count: number; value: number };
   discount: { pre_discount: number; discount: number; plan_discount: number; rate: number | null;
     with_discount_sent: number; with_discount_won: number; without_discount_sent: number; without_discount_won: number };
   follow_up: { needed: number; followed_up: number; no_phone: number };

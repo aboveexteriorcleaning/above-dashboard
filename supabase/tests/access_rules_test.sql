@@ -941,4 +941,28 @@ do $$ declare n int; begin
   raise notice 'ok  leads: touches within 10 minutes count once';
 end $$;
 
+-- ---------- open quotes: period, pipeline, stale, and the other-option rule ----------
+insert into public.clients (id, name) values ('CW1', 'Waiting customer'), ('CW2', 'Picked the other option');
+insert into public.quotes (id, client_id, status, subtotal, discount_amount, total, created_at, sent_at, approved_at) values
+ ('QW1', 'CW1', 'awaiting_response', 400, 0, 432, now() - interval '10 days', now() - interval '10 days', null),
+ ('QW2', 'CW1', 'awaiting_response', 900, 0, 972, now() - interval '200 days', now() - interval '200 days', null),
+ ('QW3', 'CW2', 'awaiting_response', 700, 0, 756, now() - interval '5 days', now() - interval '5 days', null),
+ ('QW4', 'CW2', 'approved', 500, 0, 540, now() - interval '5 days', now() - interval '5 days', now() - interval '4 days');
+insert into public.quote_line_items values ('QW1a','QW1','Windows',1,400,400,false,0),('QW2a','QW2','Roof',1,900,900,false,0),
+  ('QW3a','QW3','Roof premium',1,700,700,false,0),('QW4a','QW4','Roof basic',1,500,500,false,0);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare o jsonb; begin
+  o := public.owner_sales((now() - interval '30 days')::date, (now() at time zone 'America/Los_Angeles')::date);
+  -- QW3 is the option CW2 didn't pick (they approved QW4), so it isn't waiting
+  assert (o->'waiting_period'->>'count')::int = 1 and (o->'waiting_period'->>'value')::numeric = 400, format('waiting this period %s', o->'waiting_period');
+  assert (o->'stale'->>'count')::int = 1 and (o->'stale'->>'value')::numeric = 900, format('stale %s', o->'stale');
+  assert exists (select 1 from jsonb_array_elements(o->'to_follow_up') x where x->>'id' = 'QW1')
+     and not exists (select 1 from jsonb_array_elements(o->'to_follow_up') x where x->>'id' = 'QW3'), 'follow-up list skips customers who booked';
+  assert (public.owner_overview((now() - interval '30 days')::date, (now() at time zone 'America/Los_Angeles')::date)->'quotes'->>'open_value')::numeric = 400,
+         'Overview still-waiting uses the same rule';
+  raise notice 'ok  sales: still waiting by period, 90-day pipeline, stale quotes, other options dropped';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
