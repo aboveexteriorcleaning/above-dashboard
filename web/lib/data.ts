@@ -337,7 +337,7 @@ export async function getPlanExtras(from: string, to: string): Promise<PlanExtra
 
 // ---------- financial + alerts (owners) ----------
 export type FinancialKpis = {
-  settings: { crew_hours_per_day: number; work_days_per_week: number; trucks: number };
+  settings: { crew_hours_per_day: number; drive_hours_per_day: number; work_weekdays: number[]; trucks: number };
   revenue: number; invoiced: number; collected: number; labor_cost: number; headcount: number; field_headcount: number;
   open_ar: number; invoiced_90d: number; available_hours: number; scheduled_hours: number;
   next7_available: number; next7_booked: number; next14_available: number; next14_booked: number;
@@ -359,10 +359,10 @@ export async function getAlerts(): Promise<Alerts> {
   return await rpc<Alerts>("owner_alerts");
 }
 export async function getSettings(): Promise<FinancialKpis["settings"]> {
-  if (isDemo()) return { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 };
+  if (isDemo()) return { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2 };
   const sb = await supabaseForUser();
-  const { data } = await sb.from("business_settings").select("crew_hours_per_day, work_days_per_week, trucks").limit(1).maybeSingle();
-  return (data as any) ?? { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 };
+  const { data } = await sb.from("business_settings").select("crew_hours_per_day, drive_hours_per_day, work_weekdays, trucks").limit(1).maybeSingle();
+  return (data as any) ?? { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2 };
 }
 
 // ---------- Google reviews ----------

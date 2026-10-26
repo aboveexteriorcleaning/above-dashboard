@@ -862,11 +862,13 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ declare f jsonb; a jsonb; begin
-  update public.business_settings set trucks = 2, crew_hours_per_day = 8, work_days_per_week = 7;
-  f := public.owner_financial('2026-10-01','2026-10-07');
+  update public.business_settings set trucks = 2, crew_hours_per_day = 8, drive_hours_per_day = 1, work_weekdays = '{1,2,3,4,5}';
+  -- Mon Oct 5 - Sun Oct 11 2026: 5 working days x (8 - 1 drive) x 2 trucks = 70
+  f := public.owner_financial('2026-10-05','2026-10-11');
   assert (f->'settings'->>'trucks')::int = 2, 'owner can change settings';
-  assert (f->>'available_hours')::numeric = 7 * 8 * 2, format('available hours %s', f->>'available_hours');
-  assert (f->>'next7_available')::numeric = 112, format('next 7 days %s', f->>'next7_available');
+  assert (f->>'available_hours')::numeric = 70, format('available hours %s', f->>'available_hours');
+  assert (f->>'next7_available')::numeric = 70, format('next 7 days %s', f->>'next7_available');   -- any 7 days hold 5 weekdays
+  assert app.workday_count('2026-10-24', '2026-10-25', '{1,2,3,4,5}') = 0, 'weekends are not work days';
   f := public.owner_financial('2026-10-01','2026-10-31');
   assert (f->>'revenue')::numeric = (public.owner_overview('2026-10-01','2026-10-31')->'revenue'->>'completed')::numeric, 'revenue matches overview';
   assert (f->>'snapshots')::int >= 1, 'forecast snapshot taken';

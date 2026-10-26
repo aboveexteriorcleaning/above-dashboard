@@ -8,6 +8,13 @@ import { money, n, pct, shortDate } from "@/lib/format";
 export const dynamic = "force-dynamic";
 const per = (a: number, b: number) => (b ? a / b : null);
 
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function dayList(days: number[]) {
+  const d = [...days].sort();
+  const run = d.length > 2 && d.every((x, i) => i === 0 || x === d[i - 1] + 1);
+  return run ? `${DAY_NAMES[d[0] - 1]}–${DAY_NAMES[d[d.length - 1] - 1]}` : d.map((x) => DAY_NAMES[x - 1]).join(", ");
+}
+
 export default async function Financial({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
@@ -38,7 +45,7 @@ export default async function Financial({ searchParams }: { searchParams: Promis
         </section>
 
         <section className="section" aria-labelledby="cap-h">
-          <div className="section-head"><h2 id="cap-h">Capacity</h2><span className="muted small">{n(f.settings.trucks)} trucks × {f.settings.crew_hours_per_day} hr × {f.settings.work_days_per_week} days a week</span></div>
+          <div className="section-head"><h2 id="cap-h">Capacity</h2><span className="muted small">{n(f.settings.trucks)} trucks × {n(f.settings.crew_hours_per_day - f.settings.drive_hours_per_day)} schedulable hr ({f.settings.crew_hours_per_day} hr day − {f.settings.drive_hours_per_day} hr drive) × {dayList(f.settings.work_weekdays)}</span></div>
           <div className="stats">
             <Stat value={pct(per(f.scheduled_hours, f.available_hours))} label="Schedule utilization" note={`${n(f.scheduled_hours)} scheduled of ${n(f.available_hours)} available truck hours so far this period`} />
             <Stat value={money(per(f.revenue, f.available_hours))} label="Revenue per available crew hour" />

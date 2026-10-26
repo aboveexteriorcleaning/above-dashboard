@@ -227,3 +227,9 @@ input, select {
 .reviews li { padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
 .reviews strong { color: #c58b00; letter-spacing: 1px; }
 .reviews strong.down { color: var(--cedar); }
+
+.weekdays { border: 0; padding: 0; margin: 0; grid-column: 1 / -1; order: 1; }
+.weekdays legend { font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; padding: 0; }
+.weekdays > div { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.weekdays label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 0.95rem; font-weight: 400; }
+.weekdays input[type="checkbox"] { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }

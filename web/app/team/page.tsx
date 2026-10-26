@@ -7,6 +7,8 @@ import { inviteMember, saveMember, saveSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 export default async function Team({ searchParams }: { searchParams: Promise<{ p?: string; ok?: string; warn?: string }> }) {
   const session = await requireSession(["owner"]);
   const sp = await searchParams;
@@ -156,10 +158,20 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
         </section>
 
         <section className="section" aria-labelledby="biz-h">
-          <div className="section-head"><h2 id="biz-h">Business settings</h2><span className="muted small">Used for capacity and revenue per truck</span></div>
+          <div className="section-head"><h2 id="biz-h">Business settings</h2><span className="muted small">Schedulable hours = crew day − drive time, on the days you pick ({n((settings.crew_hours_per_day - settings.drive_hours_per_day) * settings.work_weekdays.length)} per truck a week)</span></div>
           <form action={saveSettings} className="member" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
             <div><label htmlFor="s-h">Crew hours per day</label><input id="s-h" name="crew_hours_per_day" inputMode="decimal" defaultValue={settings.crew_hours_per_day} /></div>
-            <div><label htmlFor="s-d">Work days per week</label><input id="s-d" name="work_days_per_week" inputMode="numeric" defaultValue={settings.work_days_per_week} /></div>
+            <div><label htmlFor="s-dr">Drive time per day (hr)</label><input id="s-dr" name="drive_hours_per_day" inputMode="decimal" defaultValue={settings.drive_hours_per_day} /></div>
+            <fieldset className="weekdays">
+              <legend>Days we schedule work</legend>
+              <div>
+                {WEEKDAYS.map((d, i) => (
+                  <label key={d}>
+                    <input type="checkbox" name="work_weekdays" value={i + 1} defaultChecked={settings.work_weekdays.includes(i + 1)} />{d}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div><label htmlFor="s-t">Trucks</label><input id="s-t" name="trucks" inputMode="numeric" defaultValue={settings.trucks} /></div>
             <div><button className="btn" type="submit">Save settings</button></div>
           </form>
