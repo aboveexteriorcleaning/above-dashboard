@@ -222,3 +222,8 @@ input, select {
 .alerts h2 { font-size: 1rem; margin-bottom: 8px; }
 .alerts ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .alerts a { color: var(--slate); }
+
+.reviews { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.reviews li { padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+.reviews strong { color: #c58b00; letter-spacing: 1px; }
+.reviews strong.down { color: var(--cedar); }

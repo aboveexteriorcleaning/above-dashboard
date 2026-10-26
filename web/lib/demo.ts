@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -309,4 +309,14 @@ export const financial = (): FinancialKpis => ({
 export const alerts = (): Alerts => ({
   leads_waiting: 2, follow_ups_due: 2, missed_not_returned: 1, big_quotes_no_follow_up: 3, plans_need_booking: 6, long_crew_days: 1,
   next7_utilization: 0.74, callback_rate_30: 0.054, callback_rate_prior: 0.031, approval_rate_30: 0.41, approval_rate_prior: 0.47,
+});
+
+export const reviews = (): ReviewKpis => ({
+  connected: true, average_all: 4.9, total_all: 187, reviews: 9, average: 4.78, five_star: 8, low: 1, completed_jobs: 37,
+  replied: 7, reply_hours: 5.5, requests: 24, matched: 6,
+  by_person: [{ name: "Crew member A", reviews: 5, average: 5, five_star: 5 }, { name: "Crew member B", reviews: 3, average: 4.67, five_star: 2 }],
+  recent: [
+    { id: "r1", stars: 5, reviewer_name: "Sample Reviewer A", created_at: "2026-10-23T18:00:00Z", comment: "Roof looks brand new. The crew was quick, polite and cleaned up everything.", replied: true, crew: "Crew member A & Crew member B" },
+    { id: "r2", stars: 4, reviewer_name: "Sample Reviewer B", created_at: "2026-10-19T18:00:00Z", comment: "Windows look great, arrived a little later than planned.", replied: false, crew: "Crew member B" },
+  ],
 });

@@ -60,6 +60,22 @@ Setup: add `META_ACCESS_TOKEN` and `META_AD_ACCOUNT_ID` (digits) as Supabase
 secrets, deploy, then run Actions → Sync → `meta-check`, then `meta-backfill`.
 After that it re-reads the last 3 days every hour and the last 28 days nightly.
 
+## Google reviews sync
+
+`supabase/functions/google-sync` reads Google Business Profile reviews. Google
+has no read-only permission for Business Profile, so `_shared/google.ts` is the
+lock: GET only, and only to list accounts, list locations, and list a
+location's reviews. The single POST allowed is to Google's token endpoint. A
+tripwire test fails the deploy if Google is reached from anywhere else.
+
+Setup: Google must approve Business Profile API access for the Cloud project.
+Then add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SETUP_KEY`
+secrets, deploy, open `<project>/functions/v1/google-connect?key=<GOOGLE_SETUP_KEY>`
+once, and run Actions → Sync → `google-check`, then `google-sync`. After that it
+reads new reviews every 3 hours. Quo texts with a Google review link are
+flagged (the text isn't stored) for review-request conversion; run `quo-rescan`
+once to flag the last 120 days.
+
 ## Running the access tests locally
 ```
 psql -d testdb -f supabase/tests/supabase_stub.sql

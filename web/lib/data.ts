@@ -361,3 +361,20 @@ export async function getSettings(): Promise<FinancialKpis["settings"]> {
   const { data } = await sb.from("business_settings").select("crew_hours_per_day, work_days_per_week, trucks").limit(1).maybeSingle();
   return (data as any) ?? { crew_hours_per_day: 8, work_days_per_week: 6, trucks: 2 };
 }
+
+// ---------- Google reviews ----------
+export type ReviewKpis = {
+  connected: boolean; average_all: number | null; total_all: number | null; reviews: number; average: number | null;
+  five_star: number; low: number; completed_jobs: number; replied: number; reply_hours: number | null; requests: number; matched: number;
+  by_person: { name: string; reviews: number; average: number; five_star: number }[];
+  recent: { id: string; stars: number | null; reviewer_name: string | null; created_at: string; comment: string | null; replied: boolean; crew: string | null }[];
+};
+export async function getReviews(from: string, to: string): Promise<ReviewKpis> {
+  if (isDemo()) return demo.reviews();
+  return await rpc<ReviewKpis>("owner_reviews", { p_from: from, p_to: to });
+}
+export async function getMyReviews(from: string, to: string): Promise<{ reviews: number; average: number | null; five_star: number }> {
+  if (isDemo()) return { reviews: 3, average: 5, five_star: 3 };
+  const rows = await rpc<any[]>("my_reviews", { p_from: from, p_to: to });
+  return numify(rows?.[0] ?? { reviews: 0, average: null, five_star: 0 });
+}

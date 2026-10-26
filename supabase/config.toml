@@ -8,6 +8,9 @@ project_id = "fmpbjesfoeupybflfrbd"
 #   jobber-sync           -> SYNC_KEY header
 #   quo-sync              -> SYNC_KEY header
 #   meta-sync             -> SYNC_KEY header
+#   google-connect        -> GOOGLE_SETUP_KEY
+#   google-oauth-callback -> one-time state + PKCE
+#   google-sync           -> SYNC_KEY header
 [functions.jobber-connect]
 verify_jwt = false
 
@@ -24,4 +27,13 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.meta-sync]
+verify_jwt = false
+
+[functions.google-connect]
+verify_jwt = false
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.google-sync]
 verify_jwt = false

@@ -1,7 +1,7 @@
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
-import { getCompanySummary, getMyCommission, getMyJobs, getMyPlanSales, getMyScorecard, getMyToday } from "@/lib/data";
+import { getCompanySummary, getMyCommission, getMyJobs, getMyPlanSales, getMyReviews, getMyScorecard, getMyToday } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
 import { hm, money, moneyExact, n, pct, shortDate } from "@/lib/format";
 
@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 export default async function Me({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner", "crew"]);
   const period = resolvePeriod((await searchParams).p);
-  const [me, jobs, co, plans] = await Promise.all([
-    getMyScorecard(period.from, period.to), getMyJobs(period.from, period.to), getCompanySummary(period.from, period.to), getMyPlanSales(period.from, period.to),
+  const [me, jobs, co, plans, rv] = await Promise.all([
+    getMyScorecard(period.from, period.to), getMyJobs(period.from, period.to), getCompanySummary(period.from, period.to), getMyPlanSales(period.from, period.to), getMyReviews(period.from, period.to),
   ]);
   const first = session.name?.split(" ")[0];
   // Commission vs hourly applies to people who clock in.
@@ -118,6 +118,7 @@ export default async function Me({ searchParams }: { searchParams: Promise<{ p?:
               note={`Sold a plan at ${n(plans.converted_homes)} of ${n(plans.serviced_homes)} homes you worked at that weren't on one`} />}
             {(me.quotes_sent > 0 || me.quotes_approved > 0) && <Stat value={`${n(me.quotes_approved)} / ${n(me.quotes_sent)}`} label="Your quotes approved / sent" />}
             <Stat value={n(me.callbacks)} label="Callbacks on your jobs" tone={me.callbacks > 0 ? "down" : undefined} />
+            {rv.reviews > 0 && <Stat value={`${n(rv.reviews)}`} label="Google reviews on your jobs" note={`${rv.average ?? "—"} ★ average, ${n(rv.five_star)} five-star`} />}
           </div>
         </section>
 

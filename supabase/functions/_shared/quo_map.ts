@@ -14,6 +14,11 @@ export function externalNumber(candidates: (string | null | undefined)[], ours: 
   return null;
 }
 
+/** A text that asks for a Google review (contains a Google review link). */
+export function isReviewRequest(text: string | null | undefined): boolean {
+  return /g\.page\/|search\.google\.com\/local\/writereview|maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|google\.com\/maps\/place/i.test(text ?? "");
+}
+
 async function md5ish(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -50,6 +55,7 @@ export function mapCall(c: any, ours: Set<string>) {
     is_system: typeof who === "string" && who.startsWith("SYU"),
     text_head_hash: null,
     text_tail_hash: null,
+    is_review_request: false,
     synced_at: new Date().toISOString(),
   };
 }
@@ -77,6 +83,7 @@ export async function mapMessage(m: any, ours: Set<string>) {
     is_system: typeof m.userId === "string" && m.userId.startsWith("SYU"),
     text_head_hash: fp.head,
     text_tail_hash: fp.tail,
+    is_review_request: !incoming && isReviewRequest(m.text),
     synced_at: new Date().toISOString(),
   };
 }

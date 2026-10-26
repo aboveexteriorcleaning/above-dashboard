@@ -35,7 +35,9 @@ Deno.serve(async (req) => {
       const days = Math.min(Math.max(Math.trunc(Number(params.get("days") ?? 730)) || 730, 1), 1095);
       return json(await backfill(days, params.get("restart") === "1"));
     }
-    return json(await incremental(params.get("force") === "1"));
+    const rescan = params.get("days");
+    return json(await incremental(params.get("force") === "1" || !!rescan,
+      rescan ? Math.min(Math.max(Math.trunc(Number(rescan)) || 1, 1), 400) : null));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await markSync("quo", false, msg).catch(() => {});
@@ -134,7 +136,7 @@ async function backfill(days: number, restart: boolean) {
   return { ok: true, done: true, saved };
 }
 
-async function incremental(force: boolean) {
+async function incremental(force: boolean, rescanDays: number | null = null) {
   const sql = db();
   const cur = await getCursor();
   if (!cur.backfilled) return { ok: true, skipped: "history import not finished yet (run the Quo backfill)" };
@@ -142,7 +144,9 @@ async function incremental(force: boolean) {
   const last = s?.last_success_at ? new Date(s.last_success_at) : new Date(Date.now() - 86400_000);
   if (!force && Date.now() - last.getTime() < 4 * 60_000) return { ok: true, skipped: "synced under 4 minutes ago" };
   // Re-read the last 2 hours too: call status and voicemails can land after the call starts.
-  const since = new Date(last.getTime() - 2 * 3600_000).toISOString();
+  const since = rescanDays
+    ? new Date(Date.now() - rescanDays * 86400_000).toISOString()   // re-read a longer window (e.g. to pick up new flags)
+    : new Date(last.getTime() - 2 * 3600_000).toISOString();
   const ours = await refreshDirectory();
   const saved: Record<string, number> = { calls: 0, messages: 0 };
   for (const kind of ["calls", "messages"] as const) {

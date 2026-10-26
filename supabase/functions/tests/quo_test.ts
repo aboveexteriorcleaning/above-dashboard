@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
 import { assertQuoReadOnly, assertQuoRequest, quoGet, QuoReadOnlyViolation } from "../_shared/quo.ts";
-import { externalNumber, mapCall, mapMessage, textFingerprints } from "../_shared/quo_map.ts";
+import { externalNumber, isReviewRequest, mapCall, mapMessage, textFingerprints } from "../_shared/quo_map.ts";
 
 Deno.test("quo guard: only GET to the four list endpoints", () => {
   assertQuoReadOnly("GET", "/calls");
@@ -109,4 +109,14 @@ Deno.test("quo tripwire: no other code touches Quo", async () => {
   const methods = [...client.matchAll(/method:\s*"([A-Z]+)"/g)].map((m) => m[1]);
   assertEquals(methods, ["GET"], "the Quo client may only ever use GET");
   assert(!/\b(POST|PUT|PATCH|DELETE)\b"/.test(client.replace(/\/\/.*$/gm, "")), "no write methods in the Quo client");
+});
+
+Deno.test("review request texts are flagged (text itself isn't kept)", async () => {
+  assert(isReviewRequest("Thanks again! Would you leave us a review? https://g.page/r/abc123/review"));
+  assert(isReviewRequest("Review us here: https://search.google.com/local/writereview?placeid=XYZ"));
+  assert(!isReviewRequest("See you Tuesday at 9"));
+  const row = await mapMessage({ id: "AC9", direction: "outgoing", createdAt: "2026-10-01T16:00:00Z", to: ["+13605550124"],
+    text: "Hi Pat, thanks for choosing Above! Mind leaving a quick review? https://g.page/r/abc/review", userId: "USkale" }, OURS);
+  assert(row.is_review_request);
+  assert(!JSON.stringify(row).includes("g.page"));
 });

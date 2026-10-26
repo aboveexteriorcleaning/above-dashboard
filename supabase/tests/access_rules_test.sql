@@ -876,4 +876,41 @@ do $$ declare f jsonb; a jsonb; begin
 end $$;
 reset role;
 
+-- ---------- Google reviews ----------
+do $$ begin
+  assert app.reviewer_matches('Jane Doe', 'Jane D.') and app.reviewer_matches('Jane Doe', 'jane doe');
+  assert not app.reviewer_matches('Jane Doe', 'Jane Smith') and not app.reviewer_matches('Anthony', 'Anthony')
+     and not app.reviewer_matches('New Call +13605550000', 'New C.'), 'name matching';
+  raise notice 'ok  reviews: reviewer names match full names or first name + last initial only';
+end $$;
+update public.clients set name = 'Jane Doe' where id = 'C20';      -- JS1 on Oct 15, Connor + Sage
+insert into public.google_review_totals values ('L1', 4.80, 120, now());
+insert into public.google_reviews (id, location_id, stars, reviewer_name, comment, created_at, updated_at, replied_at) values
+ ('GR1', 'L1', 5, 'Jane D.', 'Spotless windows', '2026-10-18 18:00Z', '2026-10-18 18:00Z', '2026-10-18 20:00Z'),
+ ('GR2', 'L1', 2, 'John Smith', 'Late', '2026-10-20 18:00Z', '2026-10-20 18:00Z', null);
+insert into public.communications (id, kind, direction, contact_phone, occurred_at, quo_user_id, phone_number_id, is_review_request)
+values ('rr1', 'message', 'outbound', '+13605550777', '2026-10-16 18:00Z', 'USK', 'PN1', true);
+select app.refresh_reviews();
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail($q$select public.owner_reviews('2026-10-01','2026-10-31')$q$, 'crew cannot see company reviews');
+do $$ declare m record; begin
+  assert (select count(*) from public.google_reviews) = 0, 'crew cannot read reviews directly';
+  select * into m from public.my_reviews('2026-10-01','2026-10-31');
+  assert m.reviews = 1 and m.five_star = 1, format('connor own reviews %s', m);
+  raise notice 'ok  reviews: crew see only reviews on their own jobs';
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare r jsonb; p jsonb; begin
+  r := public.owner_reviews('2026-10-01','2026-10-31');
+  assert (r->>'reviews')::int = 2 and (r->>'average')::numeric = 3.5 and (r->>'five_star')::int = 1 and (r->>'average_all')::numeric = 4.8, format('reviews %s', r);
+  assert (r->>'matched')::int = 1 and (r->>'requests')::int = 1 and (r->>'replied')::int = 1 and (r->>'reply_hours')::numeric = 2, format('reviews detail %s', r);
+  select x into p from jsonb_array_elements(r->'by_person') x where x->>'name' = 'Connor (test)';
+  assert (p->>'reviews')::int = 1, format('crew credit %s', r->'by_person');
+  raise notice 'ok  reviews: rating, five-star, replies, requests, matched to the crew';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

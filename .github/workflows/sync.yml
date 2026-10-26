@@ -21,6 +21,9 @@ on:
           - quo-backfill     # import the last 2 years of Quo calls and texts (read-only); turns on the 5-minute Quo sync
           - quo-status       # Quo sync time and record counts (no customer details)
           - quo-incremental  # pull new Quo calls and texts now
+          - quo-rescan       # re-read the last 120 days of Quo texts (picks up review-request flags); read-only
+          - google-check     # list the connected Google Business Profile locations; saves nothing
+          - google-sync      # read Google reviews now; read-only
           - meta-check       # confirm the Meta token and ad account; reads, saves nothing
           - meta-backfill    # import ad results for the last ~2 years (read-only); turns on the hourly Meta sync
           - meta-status      # Meta sync time, date range and totals
@@ -40,6 +43,7 @@ jobs:
       BASE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/jobber-sync
       QUO: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/quo-sync
       META: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/meta-sync
+      GOOGLE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/google-sync
       SYNC_KEY: ${{ secrets.SYNC_KEY }}
     steps:
       - name: Run
@@ -47,7 +51,7 @@ jobs:
           set -euo pipefail
           call() {
             echo "::group::$1"
-            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; meta:*) url="$META?${1#meta:}" ;; esac
+            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; meta:*) url="$META?${1#meta:}" ;; google:*) url="$GOOGLE?${1#google:}" ;; esac
             code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$url" --max-time 400)
             cat out.json; echo; echo "::endgroup::"
             if [ "$code" != "200" ] || grep -q '"ok": false' out.json; then
@@ -85,6 +89,9 @@ jobs:
             quo-check)       call "quo:mode=check" ;;
             quo-status)      call "quo:mode=status" ;;
             quo-incremental) call "quo:mode=incremental&force=1" ;;
+            quo-rescan)      call "quo:mode=incremental&days=120" ;;
+            google-check)    call "google:mode=check" ;;
+            google-sync)     call "google:mode=incremental" ;;
             meta-check)      call "meta:mode=check" ;;
             meta-status)     call "meta:mode=status" ;;
             meta-backfill)
