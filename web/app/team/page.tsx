@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards } from "@/lib/data";
@@ -39,7 +40,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               <tbody>
                 {ranked.map((s) => (
                   <tr key={s.employee_id}>
-                    <td><strong>{s.full_name}</strong></td>
+                    <td><Link className="person-link" href={`/team/${s.employee_id}?p=${period.key}`}>{s.full_name}</Link></td>
                     <td className="num">{money(s.revenue_credited)}</td>
                     <td className="num">{n(s.completed_jobs)}</td>
                     <td className="num">{n(s.hours)}{s.hours_source === "scheduled" && <span className="muted"> est.</span>}</td>
@@ -68,7 +69,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                 <tbody>
                   {planSales.map((p) => (
                     <tr key={p.employee_id}>
-                      <td><strong>{p.full_name}</strong></td>
+                      <td><Link className="person-link" href={`/team/${p.employee_id}?p=${period.key}`}>{p.full_name}</Link></td>
                       <td className="num">{n(p.plans_sold)}</td>
                       <td className="num">{n(p.on_site)} / {n(p.pre_job)}</td>
                       <td className="num">{p.serviced_homes ? <>{pct(p.conversion)} <span className="muted">({n(p.converted_homes)} of {n(p.serviced_homes)})</span></> : "—"}</td>
@@ -94,7 +95,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               <tbody>
                 {comm.map((c) => (
                   <tr key={c.employee_id}>
-                    <td><strong>{c.full_name}</strong>{c.missing_wage && <span className="tag off" style={{ marginLeft: 8 }}>Base wage missing</span>}</td>
+                    <td><Link className="person-link" href={`/team/${c.employee_id}?p=${period.key}`}>{c.full_name}</Link>{c.missing_wage && <span className="tag off" style={{ marginLeft: 8 }}>Base wage missing</span>}</td>
                     <td className="num">{n(c.commission_days)} of {n(c.work_days)}</td>
                     <td className="num">{moneyExact(c.commission_earned)}</td>
                   </tr>

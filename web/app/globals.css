@@ -233,3 +233,8 @@ input, select {
 .weekdays > div { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .weekdays label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 0.95rem; font-weight: 400; }
 .weekdays input[type="checkbox"] { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }
+
+.person-link { font-weight: 600; color: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.person-link:hover { text-decoration-color: currentColor; }
+.viewas { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+.viewas a { font-weight: 600; }

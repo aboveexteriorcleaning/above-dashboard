@@ -55,8 +55,8 @@ const numify = <T,>(row: any): T => {
   return out as T;
 };
 
-async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
-  const sb = await supabaseForUser();
+async function rpc<T>(fn: string, args?: Record<string, unknown>, viewAs?: string): Promise<T> {
+  const sb = await supabaseForUser(viewAs);
   const { data, error } = await sb.rpc(fn, args);
   if (error) throw new Error(`${fn}: ${error.message}`);
   return data as T;
@@ -110,14 +110,14 @@ export async function getTeam(): Promise<TeamMember[]> {
 }
 
 // ---------- everyone ----------
-export async function getMyScorecard(from: string, to: string): Promise<Scorecard> {
+export async function getMyScorecard(from: string, to: string, viewAs?: string): Promise<Scorecard> {
   if (isDemo()) return demo.myScore();
-  const rows = await rpc<any[]>("my_scorecard", { p_from: from, p_to: to });
+  const rows = await rpc<any[]>("my_scorecard", { p_from: from, p_to: to }, viewAs);
   return numify<Scorecard>(rows[0]);
 }
-export async function getMyJobs(from: string, to: string): Promise<MyJob[]> {
+export async function getMyJobs(from: string, to: string, viewAs?: string): Promise<MyJob[]> {
   if (isDemo()) return demo.myJobs();
-  return (await rpc<any[]>("my_jobs", { p_from: from, p_to: to })).map((r) => numify<MyJob>(r));
+  return (await rpc<any[]>("my_jobs", { p_from: from, p_to: to }, viewAs)).map((r) => numify<MyJob>(r));
 }
 export async function getCompanySummary(from: string, to: string): Promise<CompanySummary> {
   if (isDemo()) return demo.company();
@@ -131,17 +131,17 @@ export async function getFreshness(): Promise<Freshness> {
 }
 
 // ---------- commission ----------
-export async function getMyCommission(from: string, to: string): Promise<{ summary: CommissionSummary; days: CommissionDay[] }> {
+export async function getMyCommission(from: string, to: string, viewAs?: string): Promise<{ summary: CommissionSummary; days: CommissionDay[] }> {
   if (isDemo()) return demo.commission();
   const [sum, days] = await Promise.all([
-    rpc<any[]>("my_commission_summary", { p_from: from, p_to: to }),
-    rpc<any[]>("my_commission_days", { p_from: from, p_to: to }),
+    rpc<any[]>("my_commission_summary", { p_from: from, p_to: to }, viewAs),
+    rpc<any[]>("my_commission_days", { p_from: from, p_to: to }, viewAs),
   ]);
   return { summary: numify<CommissionSummary>(sum[0]), days: days.map((d) => numify<CommissionDay>(d)) };
 }
-export async function getMyToday(): Promise<Today> {
+export async function getMyToday(viewAs?: string): Promise<Today> {
   if (isDemo()) return demo.today();
-  const rows = await rpc<any[]>("my_today");
+  const rows = await rpc<any[]>("my_today", undefined, viewAs);
   return numify<Today>(rows[0]);
 }
 export async function getTeamCommission(from: string, to: string): Promise<TeamCommission[]> {
@@ -187,9 +187,9 @@ export async function getPlanCustomers(): Promise<PlanCustomer[]> {
 export type PlanSales = { plans_sold: number; on_site: number; pre_job: number; value_sold: number;
   serviced_homes: number; converted_homes: number; conversion: number | null };
 export type TeamPlanSales = PlanSales & { employee_id: string; full_name: string };
-export async function getMyPlanSales(from: string, to: string): Promise<PlanSales> {
+export async function getMyPlanSales(from: string, to: string, viewAs?: string): Promise<PlanSales> {
   if (isDemo()) return demo.myPlanSales();
-  const rows = await rpc<any[]>("my_plan_sales", { p_from: from, p_to: to });
+  const rows = await rpc<any[]>("my_plan_sales", { p_from: from, p_to: to }, viewAs);
   return numify<PlanSales>(rows[0]);
 }
 export async function getTeamPlanSales(from: string, to: string): Promise<TeamPlanSales[]> {
@@ -376,8 +376,8 @@ export async function getReviews(from: string, to: string): Promise<ReviewKpis> 
   if (isDemo()) return demo.reviews();
   return await rpc<ReviewKpis>("owner_reviews", { p_from: from, p_to: to });
 }
-export async function getMyReviews(from: string, to: string): Promise<{ reviews: number; average: number | null; five_star: number }> {
+export async function getMyReviews(from: string, to: string, viewAs?: string): Promise<{ reviews: number; average: number | null; five_star: number }> {
   if (isDemo()) return { reviews: 3, average: 5, five_star: 3 };
-  const rows = await rpc<any[]>("my_reviews", { p_from: from, p_to: to });
+  const rows = await rpc<any[]>("my_reviews", { p_from: from, p_to: to }, viewAs);
   return numify(rows?.[0] ?? { reviews: 0, average: null, five_star: 0 });
 }

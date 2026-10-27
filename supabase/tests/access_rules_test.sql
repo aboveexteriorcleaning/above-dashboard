@@ -967,4 +967,33 @@ do $$ declare o jsonb; begin
 end $$;
 reset role;
 
+-- ---------- owners can view a crew member's page as them; crew can't ----------
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- what Sage sees herself
+do $$ declare r record; begin
+  select * into r from public.my_scorecard('2026-10-01','2026-10-31');
+  perform set_config('test.sage_rev', r.revenue_credited::text, false);
+  perform set_config('test.sage_jobs', (select count(*) from public.my_jobs('2026-10-01','2026-10-31'))::text, false);
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set request.headers = '{"x-view-as":"11111111-0000-0000-0000-00000000000d"}';
+do $$ declare r record; begin
+  select * into r from public.my_scorecard('2026-10-01','2026-10-31');
+  assert r.revenue_credited = current_setting('test.sage_rev')::numeric, format('owner viewing Sage got %s', r.revenue_credited);
+  assert (select count(*) from public.my_jobs('2026-10-01','2026-10-31')) = current_setting('test.sage_jobs')::int, 'owner sees Sage''s job list';
+end $$;
+set request.headers = '{"x-view-as":"not-a-uuid"}';
+select pg_temp.expect_fail('select * from public.my_scorecard(''2026-10-01'',''2026-10-31'')', 'owner -> bad view-as id');
+set request.headers = '{"x-view-as":"11111111-0000-0000-0000-0000000000ff"}';
+select pg_temp.expect_fail('select * from public.my_scorecard(''2026-10-01'',''2026-10-31'')', 'owner -> unknown view-as id');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+set request.headers = '{"x-view-as":"11111111-0000-0000-0000-00000000000d"}';
+do $$ declare r record; begin
+  select * into r from public.my_scorecard('2026-10-01','2026-10-31');
+  assert r.revenue_credited <> current_setting('test.sage_rev')::numeric, format('crew view-as must be ignored, got %s', r.revenue_credited);
+  raise notice 'ok  view as: owners see a crew member''s page; crew can''t use it';
+end $$;
+reset request.headers;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

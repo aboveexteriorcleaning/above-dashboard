@@ -7,9 +7,12 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /** Acts as the signed-in person. Every query is filtered by the database's access rules. */
-export async function supabaseForUser() {
+export async function supabaseForUser(viewAs?: string) {
   const store = await cookies();
   return createServerClient(URL, ANON, {
+    // Owners only: show a team member's "My stats" as that person sees it. The database
+    // ignores this header for anyone who isn't an owner.
+    ...(viewAs ? { global: { headers: { "x-view-as": viewAs } } } : {}),
     cookies: {
       getAll: () => store.getAll(),
       setAll: (list) => {
