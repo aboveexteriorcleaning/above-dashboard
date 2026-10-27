@@ -1,7 +1,8 @@
+import type { Change } from "@/lib/change";
 import { money, moneyShort, n } from "@/lib/format";
 
 /** Booked → Completed → Invoiced → Paid. A real sequence, drawn as one connected band. */
-export function MoneyFlow({ stages }: { stages: { label: string; value: number; note: string }[] }) {
+export function MoneyFlow({ stages }: { stages: { label: string; value: number; note: string; change?: Change }[] }) {
   const max = Math.max(...stages.map((s) => s.value), 1);
   return (
     <section className="flow" aria-label="Revenue from booking to payment">
@@ -9,7 +10,7 @@ export function MoneyFlow({ stages }: { stages: { label: string; value: number; 
         {stages.map((s) => (
           <div key={s.label} className="flow-stage">
             <div className="flow-label">{s.label}</div>
-            <div className="flow-value figure">{money(s.value)}</div>
+            <div className="stat-row"><div className="flow-value figure">{money(s.value)}</div>{s.change && <span className={`chg ${s.change.tone}`} title={s.change.title}>{s.change.text}</span>}</div>
             <div className="flow-note">{s.note}</div>
           </div>
         ))}
@@ -107,10 +108,13 @@ function niceMax(v: number) {
   return [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * p).find((m) => m >= v * 1.05) ?? v;
 }
 
-export function Stat({ value, label, note, tone }: { value: React.ReactNode; label: string; note?: React.ReactNode; tone?: "up" | "down" }) {
+export function Stat({ value, label, note, tone, change }: { value: React.ReactNode; label: string; note?: React.ReactNode; tone?: "up" | "down"; change?: Change }) {
   return (
     <div>
-      <div className={`stat-value figure${tone ? " " + tone : ""}`}>{value}</div>
+      <div className="stat-row">
+        <div className={`stat-value figure${tone ? " " + tone : ""}`}>{value}</div>
+        {change && <span className={`chg ${change.tone}`} title={change.title}>{change.text}</span>}
+      </div>
       <div className="stat-label">{label}</div>
       {note && <div className="stat-note">{note}</div>}
     </div>

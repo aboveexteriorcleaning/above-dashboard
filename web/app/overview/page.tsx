@@ -2,17 +2,18 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Aging, BarRows, MoneyFlow, Stat, Trend } from "@/components/charts";
 import { getAlerts, getOverview, getTrend } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
-import { change, money, n, pct, shortDate } from "@/lib/format";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
+import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function Overview({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const [o, trend, al] = await Promise.all([getOverview(period.from, period.to), getTrend(), getAlerts()]);
-  const vsPrev = change(o.revenue.completed, o.revenue.completed_prev_period);
-  const r = o.revenue;
+  const prev = previousPeriod(period);
+  const [o, trend, al, po] = await Promise.all([getOverview(period.from, period.to), getTrend(), getAlerts(), prev ? getOverview(prev.from, prev.to) : null]);
+  const r = o.revenue, pr = po?.revenue;
   const alerts: { text: string; href: string }[] = [];
   if (al.leads_waiting) alerts.push({ text: `${al.leads_waiting} new ${al.leads_waiting === 1 ? "lead has" : "leads have"} no reply yet`, href: "/leads#list" });
   if (al.follow_ups_due) alerts.push({ text: `${al.follow_ups_due} lead ${al.follow_ups_due === 1 ? "follow-up is" : "follow-ups are"} due`, href: "/leads#list" });
@@ -35,7 +36,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                   {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
                 </p>
               </div>
-              <Periods current={period.key} base="/overview" />
+              <Periods current={period.key} base="/overview" period={period} />
             </div>
 
             {alerts.length > 0 && (
@@ -46,10 +47,10 @@ export default async function Overview({ searchParams }: { searchParams: Promise
             )}
 
             <MoneyFlow stages={[
-              { label: "Booked", value: r.booked, note: `${n(r.booked_jobs)} jobs scheduled or sold` },
-              { label: "Completed", value: r.completed, note: `${n(r.completed_jobs)} jobs done${vsPrev == null ? "" : `, ${vsPrev >= 0 ? "up" : "down"} ${pct(Math.abs(vsPrev))} on the period before`}` },
-              { label: "Invoiced", value: r.invoiced, note: "Before tax" },
-              { label: "Paid", value: r.paid_on_period_invoices, note: `Collected on this period's invoices, out of ${money(r.invoiced_incl_tax)} with tax` },
+              { label: "Booked", value: r.booked, note: `${n(r.booked_jobs)} jobs scheduled or sold`, change: ch.pct(r.booked, pr?.booked, "up", money) },
+              { label: "Completed", value: r.completed, note: `${n(r.completed_jobs)} jobs done`, change: ch.pct(r.completed, pr?.completed, "up", money) },
+              { label: "Invoiced", value: r.invoiced, note: "Before tax", change: ch.pct(r.invoiced, pr?.invoiced, "up", money) },
+              { label: "Paid", value: r.paid_on_period_invoices, change: ch.pct(r.paid_on_period_invoices, pr?.paid_on_period_invoices, "up", money), note: `Collected on this period's invoices, out of ${money(r.invoiced_incl_tax)} with tax` },
             ]} />
 
             <section className="section" aria-labelledby="ahead">
@@ -59,7 +60,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                 <Stat value={money(o.booked_ahead.d14)} label="Next 14 days" />
                 <Stat value={money(o.booked_ahead.d30)} label="Next 30 days"
                   note={o.booked_ahead.recurring_jobs_in_window ? `Includes ${o.booked_ahead.recurring_jobs_in_window} recurring jobs at full contract value` : undefined} />
-                <Stat value={money(r.avg_job_value)} label="Average completed job" />
+                <Stat value={money(r.avg_job_value)} label="Average completed job" change={ch.pct(r.avg_job_value, pr?.avg_job_value, "up", money)} />
               </div>
             </section>
 
@@ -67,18 +68,18 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               <section aria-labelledby="sales">
                 <div className="section-head"><h2 id="sales">Quotes</h2></div>
                 <div className="stats">
-                  <Stat value={pct(o.quotes.win_rate)} label="Approval rate" note={`${n(o.quotes.won)} approved, ${n(o.quotes.sent)} sent this period`} />
-                  <Stat value={money(o.quotes.open_value)} label="Still waiting" note="Sent this period, no reply yet (before tax)" />
+                  <Stat value={pct(o.quotes.win_rate)} label="Approval rate" change={ch.pts(o.quotes.win_rate, po?.quotes.win_rate)} note={`${n(o.quotes.won)} approved, ${n(o.quotes.sent)} sent this period`} />
+                  <Stat value={money(o.quotes.open_value)} label="Still waiting" change={ch.pct(o.quotes.open_value, po?.quotes.open_value, "none", money)} note="Sent this period, no reply yet (before tax)" />
                 </div>
               </section>
               <section aria-labelledby="customers">
                 <div className="section-head"><h2 id="customers">Customers</h2></div>
                 <div className="stats">
-                  <Stat value={n(o.customers.new)} label="First-time customers" note="Counted by address" />
-                  <Stat value={n(o.customers.returning_own)} label="Came back on their own" note="Returning for any service, not a plan visit" />
-                  <Stat value={n(o.customers.returning_plan)} label="Plan visits" note="Returning for a scheduled plan visit" />
+                  <Stat value={n(o.customers.new)} label="First-time customers" change={ch.pct(o.customers.new, po?.customers.new)} note="Counted by address" />
+                  <Stat value={n(o.customers.returning_own)} label="Came back on their own" change={ch.pct(o.customers.returning_own, po?.customers.returning_own)} note="Returning for any service, not a plan visit" />
+                  <Stat value={n(o.customers.returning_plan)} label="Plan visits" change={ch.pct(o.customers.returning_plan, po?.customers.returning_plan)} note="Returning for a scheduled plan visit" />
                   <Stat value={n(o.customers.active_plans)} label="Homes on a maintenance plan" note="Next plan visit booked, or a plan visit within the last cycle" />
-                  <Stat value={n(o.quality.callbacks)} label="Callbacks"
+                  <Stat value={n(o.quality.callbacks)} label="Callbacks" change={ch.pct(o.quality.callbacks, po?.quality.callbacks, "down")}
                     note={o.quality.callback_rate != null ? `${pct(o.quality.callback_rate)} of completed jobs` : undefined}
                     tone={o.quality.callbacks > 0 ? "down" : undefined} />
                 </div>

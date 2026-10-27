@@ -238,3 +238,10 @@ input, select {
 .person-link:hover { text-decoration-color: currentColor; }
 .viewas { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
 .viewas a { font-weight: 600; }
+
+.stat-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.chg { font-size: 0.8rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chg.good { color: var(--fir); } .chg.bad { color: var(--cedar); } .chg.flat { color: var(--slate-2); }
+.periods-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.compare-note { font-size: 0.8rem; color: var(--slate-2); }
+@media (max-width: 700px) { .periods-wrap { align-items: flex-start; } }

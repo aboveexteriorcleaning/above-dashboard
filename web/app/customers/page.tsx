@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getCustomers } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ const per = (a: number, b: number) => (b ? a / b : null);
 export default async function Customers({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const c = await getCustomers(period.from, period.to);
+  const prev = previousPeriod(period);
+  const [c, pc] = await Promise.all([getCustomers(period.from, period.to), prev ? getCustomers(prev.from, prev.to) : null]);
 
   return (
     <Shell page="customers" session={session}>
@@ -21,17 +23,17 @@ export default async function Customers({ searchParams }: { searchParams: Promis
             <h1>Customers</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")} · counted by address</p>
           </div>
-          <Periods current={period.key} base="/customers" />
+          <Periods current={period.key} base="/customers" period={period} />
         </div>
 
         <section aria-labelledby="p-h">
           <div className="section-head"><h2 id="p-h">This period</h2><span className="muted small">Completed jobs</span></div>
           <div className="stats">
-            <Stat value={n(c.customers)} label="Customers served" note={`${n(c.jobs)} jobs`} />
-            <Stat value={money(per(c.revenue, c.customers))} label="Revenue per customer" />
-            <Stat value={pct(per(c.new_revenue, c.revenue))} label="Revenue from new customers" note={`${n(c.new_customers)} new, ${money(c.new_revenue)}; returning ${money(c.returning_revenue)}`} />
-            <Stat value={money(c.first_job_avg)} label="Average first job" />
-            <Stat value={n(c.reactivated)} label="Reactivated" note={`Back after 18+ months away; ${money(c.reactivated_revenue)}`} />
+            <Stat value={n(c.customers)} label="Customers served" change={ch.pct(c.customers, pc?.customers)} note={`${n(c.jobs)} jobs`} />
+            <Stat value={money(per(c.revenue, c.customers))} label="Revenue per customer" change={ch.pct(per(c.revenue, c.customers), pc && per(pc.revenue, pc.customers), "up", money)} />
+            <Stat value={pct(per(c.new_revenue, c.revenue))} label="Revenue from new customers" change={ch.pts(per(c.new_revenue, c.revenue), pc && per(pc.new_revenue, pc.revenue), "none")} note={`${n(c.new_customers)} new, ${money(c.new_revenue)}; returning ${money(c.returning_revenue)}`} />
+            <Stat value={money(c.first_job_avg)} label="Average first job" change={ch.pct(c.first_job_avg, pc?.first_job_avg, "up", money)} />
+            <Stat value={n(c.reactivated)} label="Reactivated" change={ch.pct(c.reactivated, pc?.reactivated)} note={`Back after 18+ months away; ${money(c.reactivated_revenue)}`} />
           </div>
         </section>
 

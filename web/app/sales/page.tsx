@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getSales } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { jobberClientUrl } from "@/lib/jobber-links";
 import { money, n, pct, shortDate, timeAgo } from "@/lib/format";
 
@@ -12,8 +13,9 @@ const rate = (a: number, b: number) => (b ? a / b : null);
 export default async function Sales({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const s = await getSales(period.from, period.to);
-  const d = s.discount, fu = s.follow_up, w = s.pipeline;
+  const prev = previousPeriod(period);
+  const [s, ps] = await Promise.all([getSales(period.from, period.to), prev ? getSales(prev.from, prev.to) : null]);
+  const d = s.discount, fu = s.follow_up, w = s.pipeline, pd = ps?.discount, pfu = ps?.follow_up;
 
   return (
     <Shell page="sales" session={session}>
@@ -23,16 +25,16 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
             <h1>Sales &amp; quotes</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
           </div>
-          <Periods current={period.key} base="/sales" />
+          <Periods current={period.key} base="/sales" period={period} />
         </div>
 
         <section aria-labelledby="q-h">
           <div className="section-head"><h2 id="q-h">Quotes</h2><span className="muted small">Sent counted when sent, approved when approved</span></div>
           <div className="stats">
-            <Stat value={pct(rate(s.approved, s.sent))} label="Quote to booking" note={`${n(s.approved)} approved, ${n(s.sent)} sent`} />
-            <Stat value={money(s.approved_value)} label="Approved quote value" note={`Average ${money(s.avg_approved_value)} per approved quote`} />
-            <Stat value={s.days_to_approve == null ? "—" : `${s.days_to_approve} days`} label="Sent to approved" note="Median" />
-            <Stat value={money(s.lost_value)} label="Lost quote value" note={`${n(s.lost)} quotes sent this period and archived without approval`} />
+            <Stat value={pct(rate(s.approved, s.sent))} label="Quote to booking" change={ch.pts(rate(s.approved, s.sent), ps && rate(ps.approved, ps.sent))} note={`${n(s.approved)} approved, ${n(s.sent)} sent`} />
+            <Stat value={money(s.approved_value)} label="Approved quote value" change={ch.pct(s.approved_value, ps?.approved_value, "up", money)} note={`Average ${money(s.avg_approved_value)} per approved quote`} />
+            <Stat value={s.days_to_approve == null ? "—" : `${s.days_to_approve} days`} label="Sent to approved" change={ch.pct(s.days_to_approve, ps?.days_to_approve, "down")} note="Median" />
+            <Stat value={money(s.lost_value)} label="Lost quote value" change={ch.pct(s.lost_value, ps?.lost_value, "down", money)} note={`${n(s.lost)} quotes sent this period and archived without approval`} />
           </div>
         </section>
 
@@ -40,7 +42,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
           <section aria-labelledby="wait-h">
             <div className="section-head"><h2 id="wait-h">Still waiting</h2><span className="muted small">No reply yet; customers who booked another option left out</span></div>
             <div className="stats">
-              <Stat value={money(s.waiting_period.value)} label="Sent this period, still waiting" note={`${n(s.waiting_period.count)} quotes`} />
+              <Stat value={money(s.waiting_period.value)} label="Sent this period, still waiting" change={ch.pct(s.waiting_period.value, ps?.waiting_period.value, "none", money)} note={`${n(s.waiting_period.count)} quotes`} />
               <Stat value={money(w.value)} label="Open pipeline" note={`${n(w.count)} quotes sent in the last 90 days, as of now`} />
             </div>
             <table className="rows" style={{ marginTop: 16 }}>
@@ -59,9 +61,9 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
           <section aria-labelledby="disc-h">
             <div className="section-head"><h2 id="disc-h">Discounts</h2><span className="muted small">Quotes sent this period</span></div>
             <div className="stats">
-              <Stat value={pct(d.rate)} label="Average discount rate" note={`${money(d.discount)} off ${money(d.pre_discount)}; ${money(d.plan_discount)} of it plan discounts`} />
-              <Stat value={pct(rate(d.with_discount_won, d.with_discount_sent))} label="Approved, with a discount" note={`${n(d.with_discount_won)} of ${n(d.with_discount_sent)}`} />
-              <Stat value={pct(rate(d.without_discount_won, d.without_discount_sent))} label="Approved, no discount" note={`${n(d.without_discount_won)} of ${n(d.without_discount_sent)}`} />
+              <Stat value={pct(d.rate)} label="Average discount rate" change={ch.pts(d.rate, pd?.rate, "down")} note={`${money(d.discount)} off ${money(d.pre_discount)}; ${money(d.plan_discount)} of it plan discounts`} />
+              <Stat value={pct(rate(d.with_discount_won, d.with_discount_sent))} label="Approved, with a discount" change={ch.pts(rate(d.with_discount_won, d.with_discount_sent), pd && rate(pd.with_discount_won, pd.with_discount_sent))} note={`${n(d.with_discount_won)} of ${n(d.with_discount_sent)}`} />
+              <Stat value={pct(rate(d.without_discount_won, d.without_discount_sent))} label="Approved, no discount" change={ch.pts(rate(d.without_discount_won, d.without_discount_sent), pd && rate(pd.without_discount_won, pd.without_discount_sent))} note={`${n(d.without_discount_won)} of ${n(d.without_discount_sent)}`} />
             </div>
           </section>
         </div>
@@ -69,7 +71,7 @@ export default async function Sales({ searchParams }: { searchParams: Promise<{ 
         <section className="section" aria-labelledby="fu-h">
           <div className="section-head"><h2 id="fu-h">Quote follow-up</h2><span className="muted small">Quotes not approved within 2 days</span></div>
           <div className="stats">
-            <Stat value={pct(rate(fu.followed_up, fu.needed))} label="Followed up within a week" note={`${n(fu.followed_up)} of ${n(fu.needed)} quotes got a call or text 1–7 days after sending`} />
+            <Stat value={pct(rate(fu.followed_up, fu.needed))} label="Followed up within a week" change={ch.pts(rate(fu.followed_up, fu.needed), pfu && rate(pfu.followed_up, pfu.needed))} note={`${n(fu.followed_up)} of ${n(fu.needed)} quotes got a call or text 1–7 days after sending`} />
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>Checked in Quo against the client&rsquo;s phone in Jobber. {fu.no_phone ? `${n(fu.no_phone)} quotes went to clients with no phone in Jobber and can't be checked.` : ""}</p>
           {s.to_follow_up.length > 0 && (

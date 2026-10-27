@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getFinancial } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ function dayList(days: number[]) {
 export default async function Financial({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const f = await getFinancial(period.from, period.to);
+  const prev = previousPeriod(period);
+  const [f, pf] = await Promise.all([getFinancial(period.from, period.to), prev ? getFinancial(prev.from, prev.to) : null]);
   const days = Math.round((new Date(period.to).getTime() - new Date(period.from).getTime()) / 86400000) + 1;
   const dso = f.invoiced_90d ? (f.open_ar / f.invoiced_90d) * 90 : null;
 
@@ -30,28 +32,28 @@ export default async function Financial({ searchParams }: { searchParams: Promis
             <h1>Financial</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
           </div>
-          <Periods current={period.key} base="/financial" />
+          <Periods current={period.key} base="/financial" period={period} />
         </div>
 
         <section aria-labelledby="rev-h">
           <div className="section-head"><h2 id="rev-h">Revenue and margin</h2><span className="muted small">Completed, invoiced and collected kept separate</span></div>
           <div className="stats">
-            <Stat value={money(f.revenue)} label="Completed revenue" note="Before tax" />
-            <Stat value={money(f.invoiced)} label="Invoiced" note={`${money(f.collected)} collected on these invoices`} />
-            <Stat value={pct(per(f.revenue - f.labor_cost, f.revenue))} label="Gross margin after labor" note={`${money(f.revenue - f.labor_cost)} after ${money(f.labor_cost)} crew labor; materials not included`} />
-            <Stat value={money(per(f.revenue, f.headcount))} label="Revenue per team member" note={`${n(f.headcount)} active; ${money(per(f.revenue, f.field_headcount))} per field worker (${n(f.field_headcount)})`} />
-            <Stat value={money(per(f.revenue, f.settings.trucks))} label="Revenue per truck" note={`${n(f.settings.trucks)} trucks (set on the Team page)`} />
+            <Stat value={money(f.revenue)} label="Completed revenue" change={ch.pct(f.revenue, pf?.revenue, "up", money)} note="Before tax" />
+            <Stat value={money(f.invoiced)} label="Invoiced" change={ch.pct(f.invoiced, pf?.invoiced, "up", money)} note={`${money(f.collected)} collected on these invoices`} />
+            <Stat value={pct(per(f.revenue - f.labor_cost, f.revenue))} label="Gross margin after labor" change={ch.pts(per(f.revenue - f.labor_cost, f.revenue), pf && per(pf.revenue - pf.labor_cost, pf.revenue))} note={`${money(f.revenue - f.labor_cost)} after ${money(f.labor_cost)} crew labor; materials not included`} />
+            <Stat value={money(per(f.revenue, f.headcount))} label="Revenue per team member" change={ch.pct(per(f.revenue, f.headcount), pf && per(pf.revenue, pf.headcount), "up", money)} note={`${n(f.headcount)} active; ${money(per(f.revenue, f.field_headcount))} per field worker (${n(f.field_headcount)})`} />
+            <Stat value={money(per(f.revenue, f.settings.trucks))} label="Revenue per truck" change={ch.pct(per(f.revenue, f.settings.trucks), pf && per(pf.revenue, pf.settings.trucks), "up", money)} note={`${n(f.settings.trucks)} trucks (set on the Team page)`} />
           </div>
         </section>
 
         <section className="section" aria-labelledby="cap-h">
           <div className="section-head"><h2 id="cap-h">Capacity</h2><span className="muted small">{n(f.settings.trucks)} trucks × {n(f.settings.crew_hours_per_day - f.settings.drive_hours_per_day)} schedulable hr ({f.settings.crew_hours_per_day} hr day − {f.settings.drive_hours_per_day} hr drive) × {dayList(f.settings.work_weekdays)}</span></div>
           <div className="stats">
-            <Stat value={pct(per(f.scheduled_hours, f.available_hours))} label="Schedule utilization" note={`${n(f.scheduled_hours)} scheduled of ${n(f.available_hours)} available truck hours so far this period`} />
-            <Stat value={money(per(f.revenue, f.available_hours))} label="Revenue per available crew hour" />
+            <Stat value={pct(per(f.scheduled_hours, f.available_hours))} label="Schedule utilization" change={ch.pts(per(f.scheduled_hours, f.available_hours), pf && per(pf.scheduled_hours, pf.available_hours))} note={`${n(f.scheduled_hours)} scheduled of ${n(f.available_hours)} available truck hours so far this period`} />
+            <Stat value={money(per(f.revenue, f.available_hours))} label="Revenue per available crew hour" change={ch.pct(per(f.revenue, f.available_hours), pf && per(pf.revenue, pf.available_hours), "up", money)} />
             <Stat value={pct(per(f.next7_booked, f.next7_available))} label="Next 7 days booked" note={`${n(Math.max(f.next7_available - f.next7_booked, 0))} truck hours still open`} tone={per(f.next7_booked, f.next7_available) != null && f.next7_booked / f.next7_available < 0.6 ? "down" : undefined} />
             <Stat value={pct(per(f.next14_booked, f.next14_available))} label="Next 14 days booked" note={`${n(Math.max(f.next14_available - f.next14_booked, 0))} truck hours still open`} />
-            <Stat value={f.booking_lead_days == null ? "—" : `${f.booking_lead_days} days`} label="Booking lead time" note="Median days from booking to the visit" />
+            <Stat value={f.booking_lead_days == null ? "—" : `${f.booking_lead_days} days`} label="Booking lead time" change={ch.pct(f.booking_lead_days, pf?.booking_lead_days, "none")} note="Median days from booking to the visit" />
           </div>
         </section>
 
@@ -66,8 +68,8 @@ export default async function Financial({ searchParams }: { searchParams: Promis
           <section aria-labelledby="can-h">
             <div className="section-head"><h2 id="can-h">Cancellations</h2><span className="muted small">Jobs booked this period</span></div>
             <div className="stats">
-              <Stat value={pct(per(f.cancelled_jobs, f.booked_jobs))} label="Cancellation rate" note={`${n(f.cancelled_jobs)} of ${n(f.booked_jobs)} archived or deleted without being done`} />
-              <Stat value={money(f.cancelled_value)} label="Revenue lost to cancellations" />
+              <Stat value={pct(per(f.cancelled_jobs, f.booked_jobs))} label="Cancellation rate" change={ch.pts(per(f.cancelled_jobs, f.booked_jobs), pf && per(pf.cancelled_jobs, pf.booked_jobs), "down")} note={`${n(f.cancelled_jobs)} of ${n(f.booked_jobs)} archived or deleted without being done`} />
+              <Stat value={money(f.cancelled_value)} label="Revenue lost to cancellations" change={ch.pct(f.cancelled_value, pf?.cancelled_value, "down", money)} />
             </div>
           </section>
         </div>

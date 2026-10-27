@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getUpsells } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +12,9 @@ const per = (a: number, b: number) => (b ? a / b : null);
 export default async function Upsells({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const u = await getUpsells(period.from, period.to);
-  const o = u.offers;
+  const prev = previousPeriod(period);
+  const [u, pu] = await Promise.all([getUpsells(period.from, period.to), prev ? getUpsells(prev.from, prev.to) : null]);
+  const o = u.offers, po = pu?.offers;
 
   return (
     <Shell page="upsells" session={session}>
@@ -22,16 +24,16 @@ export default async function Upsells({ searchParams }: { searchParams: Promise<
             <h1>Upsells</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
           </div>
-          <Periods current={period.key} base="/upsells" />
+          <Periods current={period.key} base="/upsells" period={period} />
         </div>
 
         <section aria-labelledby="up-h">
           <div className="section-head"><h2 id="up-h">Upsells sold</h2><span className="muted small">Completed jobs; already part of job revenue</span></div>
           <div className="stats">
-            <Stat value={money(u.revenue)} label="Upsell revenue" note={`${money(u.on_site)} added on site, ${money(u.quote_add_on)} optional quote items picked; ${pct(per(u.revenue, u.job_revenue))} of job revenue`} />
-            <Stat value={pct(per(u.upsold_jobs, u.completed_jobs))} label="Upsell conversion" note={`${n(u.upsold_jobs)} of ${n(u.completed_jobs)} completed jobs`} />
-            <Stat value={money(per(u.revenue, u.completed_jobs))} label="Upsell revenue per job" />
-            <Stat value={money(per(u.revenue, u.upsold_jobs))} label="Average upsell" note="Per job with an upsell" />
+            <Stat value={money(u.revenue)} label="Upsell revenue" change={ch.pct(u.revenue, pu?.revenue, "up", money)} note={`${money(u.on_site)} added on site, ${money(u.quote_add_on)} optional quote items picked; ${pct(per(u.revenue, u.job_revenue))} of job revenue`} />
+            <Stat value={pct(per(u.upsold_jobs, u.completed_jobs))} label="Upsell conversion" change={ch.pts(per(u.upsold_jobs, u.completed_jobs), pu && per(pu.upsold_jobs, pu.completed_jobs))} note={`${n(u.upsold_jobs)} of ${n(u.completed_jobs)} completed jobs`} />
+            <Stat value={money(per(u.revenue, u.completed_jobs))} label="Upsell revenue per job" change={ch.pct(per(u.revenue, u.completed_jobs), pu && per(pu.revenue, pu.completed_jobs), "up", money)} />
+            <Stat value={money(per(u.revenue, u.upsold_jobs))} label="Average upsell" change={ch.pct(per(u.revenue, u.upsold_jobs), pu && per(pu.revenue, pu.upsold_jobs), "up", money)} note="Per job with an upsell" />
           </div>
         </section>
 
@@ -39,10 +41,10 @@ export default async function Upsells({ searchParams }: { searchParams: Promise<
           <div className="section-head"><h2 id="off-h">Upsell offers</h2><span className="muted small">From the &ldquo;Upsell offer&rdquo; field on Jobber jobs</span></div>
           {o.recorded > 0 ? (
             <div className="stats">
-              <Stat value={pct(per(o.offered, u.completed_jobs))} label="Offer rate" note={`Offered on ${n(o.offered)} of ${n(u.completed_jobs)} completed jobs`} />
-              <Stat value={pct(per(o.accepted, o.offered))} label="Offer acceptance" note={`${n(o.accepted)} accepted, ${n(o.declined)} declined`} />
-              <Stat value={money(per(u.revenue, o.offered))} label="Upsell revenue per offer" />
-              <Stat value={pct(per(u.completed_jobs - o.recorded, u.completed_jobs))} label="Field left blank" note={`${n(o.not_a_fit)} marked not a fit`} tone={u.completed_jobs - o.recorded > 0 ? "down" : undefined} />
+              <Stat value={pct(per(o.offered, u.completed_jobs))} label="Offer rate" change={ch.pts(per(o.offered, u.completed_jobs), pu && po ? per(po.offered, pu.completed_jobs) : null)} note={`Offered on ${n(o.offered)} of ${n(u.completed_jobs)} completed jobs`} />
+              <Stat value={pct(per(o.accepted, o.offered))} label="Offer acceptance" change={ch.pts(per(o.accepted, o.offered), po && per(po.accepted, po.offered))} note={`${n(o.accepted)} accepted, ${n(o.declined)} declined`} />
+              <Stat value={money(per(u.revenue, o.offered))} label="Upsell revenue per offer" change={ch.pct(per(u.revenue, o.offered), pu && po ? per(pu.revenue, po.offered) : null, "up", money)} />
+              <Stat value={pct(per(u.completed_jobs - o.recorded, u.completed_jobs))} label="Field left blank" change={ch.pts(per(u.completed_jobs - o.recorded, u.completed_jobs), pu && po ? per(pu.completed_jobs - po.recorded, pu.completed_jobs) : null, "down")} note={`${n(o.not_a_fit)} marked not a fit`} tone={u.completed_jobs - o.recorded > 0 ? "down" : undefined} />
             </div>
           ) : (
             <p className="muted" style={{ maxWidth: "75ch" }}>No offers recorded yet. Once crews fill in the &ldquo;Upsell offer&rdquo; dropdown (Accepted / Declined / Not offered / Not a fit) when completing jobs, offer rate and acceptance show here.</p>

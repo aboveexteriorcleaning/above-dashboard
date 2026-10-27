@@ -3,7 +3,8 @@ import { Periods } from "@/components/Periods";
 import { BarRows, Stat, Trend } from "@/components/charts";
 import { PlanSheet } from "@/components/PlanSheet";
 import { getPlanCustomers, getPlanExtras, getPlanKpis } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US"
 export default async function Plans({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const [k, customers, x] = await Promise.all([getPlanKpis(period.from, period.to), getPlanCustomers(), getPlanExtras(period.from, period.to)]);
+  const prev = previousPeriod(period);
+  const [k, customers, x, pk, px] = await Promise.all([getPlanKpis(period.from, period.to), getPlanCustomers(), getPlanExtras(period.from, period.to),
+    prev ? getPlanKpis(prev.from, prev.to) : null, prev ? getPlanExtras(prev.from, prev.to) : null]);
   const st = k.status;
   const flagged = (st.overdue ?? 0) + (st.not_booked ?? 0) + (st.needs_date ?? 0) + (st.booked_late ?? 0);
 
@@ -27,7 +30,7 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
               {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
             </p>
           </div>
-          <Periods current={period.key} base="/plans" />
+          <Periods current={period.key} base="/plans" period={period} />
         </div>
 
         {flagged > 0 && (
@@ -43,13 +46,13 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
         <section aria-labelledby="period-h">
           <div className="section-head"><h2 id="period-h">This period</h2></div>
           <div className="stats">
-            <Stat value={money(k.revenue)} label="Plan revenue"
+            <Stat value={money(k.revenue)} label="Plan revenue" change={ch.pct(k.revenue, pk?.revenue, "up", money)}
               note={`${n(k.visits)} plan visits${k.share_of_revenue != null ? `, ${pct(k.share_of_revenue)} of completed revenue` : ""}`} />
-            <Stat value={pct(k.conversion.rate)} label="Plan conversion"
+            <Stat value={pct(k.conversion.rate)} label="Plan conversion" change={ch.pts(k.conversion.rate, pk?.conversion.rate)}
               note={`${n(k.conversion.on_plan)} of ${n(k.conversion.serviced)} homes serviced are on a plan${k.conversion.rate_12m != null ? `; ${pct(k.conversion.rate_12m)} over the last 12 months` : ""}`} />
-            <Stat value={money(k.avg_visit)} label="Average plan visit" />
-            <Stat value={money(k.discounts)} label="Plan discounts given" note="Total of the plan line items" />
-            <Stat value={n(k.channels.on_site + k.channels.pre_job)} label="Plans sold"
+            <Stat value={money(k.avg_visit)} label="Average plan visit" change={ch.pct(k.avg_visit, pk?.avg_visit, "up", money)} />
+            <Stat value={money(k.discounts)} label="Plan discounts given" change={ch.pct(k.discounts, pk?.discounts, "none", money)} note="Total of the plan line items" />
+            <Stat value={n(k.channels.on_site + k.channels.pre_job)} label="Plans sold" change={ch.pct(k.channels.on_site + k.channels.pre_job, pk ? pk.channels.on_site + pk.channels.pre_job : null)}
               note={`${n(k.channels.on_site)} on site, ${n(k.channels.pre_job)} before the job${k.channels.unattributed ? `; ${n(k.channels.unattributed)} with no seller found` : ""}`} />
           </div>
         </section>
@@ -71,7 +74,7 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
             <Stat value={money(x.avg_plan_value)} label="Average plan value" note="Per home, per year" />
             <Stat value={pct(x.renewal_rate)} label="Renewal rate" note={`Of ${n(x.renewal_base)} plan homes past a due date, share with the next visit booked or done`} />
             <Stat value={pct(x.cancellation_rate)} label="Overdue or lapsed" note="Share of plan homes that have had a visit" tone={(x.cancellation_rate ?? 0) > 0.2 ? "down" : undefined} />
-            <Stat value={money(x.plan_upsell_revenue)} label="Plan members' extra work" note="Non-plan jobs at plan homes this period" />
+            <Stat value={money(x.plan_upsell_revenue)} label="Plan members' extra work" change={ch.pct(x.plan_upsell_revenue, px?.plan_upsell_revenue, "up", money)} note="Non-plan jobs at plan homes this period" />
             <Stat value={money(x.plan_lifetime_avg)} label="Plan customer lifetime value" note={`vs ${money(x.non_plan_lifetime_avg)} for customers without a plan`} />
           </div>
         </section>

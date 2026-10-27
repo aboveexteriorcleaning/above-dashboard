@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getAds, getMetaFreshness } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, moneyExact, n, pct, shortDate, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,8 @@ export default async function Ads({ searchParams }: { searchParams: Promise<{ p?
     );
   }
 
-  const a = await getAds(period.from, period.to);
+  const prev = previousPeriod(period);
+  const [a, pa] = await Promise.all([getAds(period.from, period.to), prev ? getAds(prev.from, prev.to) : null]);
   const maxSpend = Math.max(...a.monthly.map((m) => m.spend), 1);
 
   return (
@@ -43,26 +45,26 @@ export default async function Ads({ searchParams }: { searchParams: Promise<{ p?
               <span className="small"> · Meta updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
             </p>
           </div>
-          <Periods current={period.key} base="/ads" />
+          <Periods current={period.key} base="/ads" period={period} />
         </div>
 
         <section aria-labelledby="meta-h">
           <div className="section-head"><h2 id="meta-h">On Meta</h2><span className="muted small">As Meta reports it</span></div>
           <div className="stats">
-            <Stat value={money(a.spend)} label="Ad spend" note={`${n(a.days_with_spend)} days with spend`} />
-            <Stat value={n(a.meta_leads)} label="Leads" note={`${moneyExact(per(a.spend, a.meta_leads))} per lead`} />
-            <Stat value={n(a.link_clicks)} label="Link clicks" note={`${moneyExact(per(a.spend, a.link_clicks))} per click; ${pct(per(a.link_clicks, a.impressions))} of impressions`} />
-            <Stat value={n(a.impressions)} label="Impressions" note={`${moneyExact(per(a.spend * 1000, a.impressions))} per 1,000`} />
+            <Stat value={money(a.spend)} label="Ad spend" change={ch.pct(a.spend, pa?.spend, "none", money)} note={`${n(a.days_with_spend)} days with spend`} />
+            <Stat value={n(a.meta_leads)} label="Leads" change={ch.pct(a.meta_leads, pa?.meta_leads)} note={`${moneyExact(per(a.spend, a.meta_leads))} per lead`} />
+            <Stat value={n(a.link_clicks)} label="Link clicks" change={ch.pct(a.link_clicks, pa?.link_clicks)} note={`${moneyExact(per(a.spend, a.link_clicks))} per click; ${pct(per(a.link_clicks, a.impressions))} of impressions`} />
+            <Stat value={n(a.impressions)} label="Impressions" change={ch.pct(a.impressions, pa?.impressions)} note={`${moneyExact(per(a.spend * 1000, a.impressions))} per 1,000`} />
           </div>
         </section>
 
         <section className="section" aria-labelledby="attr-h">
           <div className="section-head"><h2 id="attr-h">Attributed to ads</h2><span className="muted small">Meta form leads, matched to Jobber by phone</span></div>
           <div className="stats">
-            <Stat value={money(per(a.spend, a.attributed.quoted))} label="Cost per quoted job" note={`${n(a.attributed.quoted)} form leads quoted`} />
-            <Stat value={money(per(a.spend, a.attributed.booked))} label="Cost per booked job" note={`${n(a.attributed.booked)} form leads booked, ${money(a.attributed.booked_value)} of work`} />
-            <Stat value={money(per(a.attributed.realized_revenue, a.attributed.form_leads))} label="Revenue per lead" note={`${money(a.attributed.realized_revenue)} completed so far, ${n(a.attributed.form_leads)} form leads`} />
-            <Stat value={a.spend ? `${(a.attributed.realized_revenue / a.spend).toFixed(2)}×` : "—"} label="Return on ad spend"
+            <Stat value={money(per(a.spend, a.attributed.quoted))} label="Cost per quoted job" change={ch.pct(per(a.spend, a.attributed.quoted), pa && per(pa.spend, pa.attributed.quoted), "down", money)} note={`${n(a.attributed.quoted)} form leads quoted`} />
+            <Stat value={money(per(a.spend, a.attributed.booked))} label="Cost per booked job" change={ch.pct(per(a.spend, a.attributed.booked), pa && per(pa.spend, pa.attributed.booked), "down", money)} note={`${n(a.attributed.booked)} form leads booked, ${money(a.attributed.booked_value)} of work`} />
+            <Stat value={money(per(a.attributed.realized_revenue, a.attributed.form_leads))} label="Revenue per lead" change={ch.pct(per(a.attributed.realized_revenue, a.attributed.form_leads), pa && per(pa.attributed.realized_revenue, pa.attributed.form_leads), "up", money)} note={`${money(a.attributed.realized_revenue)} completed so far, ${n(a.attributed.form_leads)} form leads`} />
+            <Stat value={a.spend ? `${(a.attributed.realized_revenue / a.spend).toFixed(2)}×` : "—"} label="Return on ad spend" change={ch.pct(per(a.attributed.realized_revenue, a.spend), pa && per(pa.attributed.realized_revenue, pa.spend))}
               note={a.spend ? `Completed revenue ÷ spend; ${(a.attributed.booked_value / a.spend).toFixed(2)}× on booked work` : undefined} />
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>
@@ -74,9 +76,9 @@ export default async function Ads({ searchParams }: { searchParams: Promise<{ p?
         <section className="section" aria-labelledby="blend-h">
           <div className="section-head"><h2 id="blend-h">Spend vs results</h2><span className="muted small">Blended: all new customers, not only those from ads</span></div>
           <div className="stats">
-            <Stat value={n(a.form_leads)} label="Form leads in Quo" note={`${moneyExact(per(a.spend, a.form_leads))} of ad spend per form lead`} />
-            <Stat value={n(a.new_customers)} label="New customers booked" note={`Customer acquisition cost: ${money(per(a.spend, a.new_customers))} of ad spend per new customer`} />
-            <Stat value={money(a.new_customer_value)} label="New customer work booked"
+            <Stat value={n(a.form_leads)} label="Form leads in Quo" change={ch.pct(a.form_leads, pa?.form_leads)} note={`${moneyExact(per(a.spend, a.form_leads))} of ad spend per form lead`} />
+            <Stat value={n(a.new_customers)} label="New customers booked" change={ch.pct(a.new_customers, pa?.new_customers)} note={`Customer acquisition cost: ${money(per(a.spend, a.new_customers))} of ad spend per new customer`} />
+            <Stat value={money(a.new_customer_value)} label="New customer work booked" change={ch.pct(a.new_customer_value, pa?.new_customer_value, "up", money)}
               note={a.spend ? `$${(a.new_customer_value / a.spend).toFixed(2)} booked per $1 of ad spend` : undefined} />
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>

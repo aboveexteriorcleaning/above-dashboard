@@ -2,7 +2,8 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getQuality, getReviews } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function Quality({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const session = await requireSession(["owner"]);
   const period = resolvePeriod((await searchParams).p);
-  const [q, rv] = await Promise.all([getQuality(period.from, period.to), getReviews(period.from, period.to)]);
+  const prev = previousPeriod(period);
+  const [q, rv, pq] = await Promise.all([getQuality(period.from, period.to), getReviews(period.from, period.to), prev ? getQuality(prev.from, prev.to) : null]);
 
   return (
     <Shell page="quality" session={session}>
@@ -20,15 +22,15 @@ export default async function Quality({ searchParams }: { searchParams: Promise<
             <h1>Quality</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
           </div>
-          <Periods current={period.key} base="/quality" />
+          <Periods current={period.key} base="/quality" period={period} />
         </div>
 
         <section aria-labelledby="cb-h">
           <div className="section-head"><h2 id="cb-h">Callbacks</h2><span className="muted small">Jobs titled &ldquo;Callback – #job number&rdquo;</span></div>
           <div className="stats">
-            <Stat value={pct(q.completed_jobs ? q.callbacks / q.completed_jobs : null)} label="Callback rate" note={`${n(q.callbacks)} callbacks, ${n(q.completed_jobs)} completed jobs`} tone={q.callbacks ? "down" : undefined} />
-            <Stat value={`${n(q.rework_hours)} hr`} label="Rework hours" note="Scheduled callback time × crew" />
-            <Stat value={money(q.callback_cost)} label="Callback cost" note="Rework hours × average crew hourly cost" />
+            <Stat value={pct(q.completed_jobs ? q.callbacks / q.completed_jobs : null)} label="Callback rate" change={ch.pts(q.completed_jobs ? q.callbacks / q.completed_jobs : null, pq && pq.completed_jobs ? pq.callbacks / pq.completed_jobs : null, "down")} note={`${n(q.callbacks)} callbacks, ${n(q.completed_jobs)} completed jobs`} tone={q.callbacks ? "down" : undefined} />
+            <Stat value={`${n(q.rework_hours)} hr`} label="Rework hours" change={ch.pct(q.rework_hours, pq?.rework_hours, "down")} note="Scheduled callback time × crew" />
+            <Stat value={money(q.callback_cost)} label="Callback cost" change={ch.pct(q.callback_cost, pq?.callback_cost, "down", money)} note="Rework hours × average crew hourly cost" />
           </div>
           {q.unlinked > 0 && <p className="notice warn">{n(q.unlinked)} callbacks don&rsquo;t name the original job number, so they can&rsquo;t be traced to a crew.</p>}
         </section>
