@@ -1,3 +1,4 @@
+import { SubmitButton } from "@/components/SubmitButton";
 import { sendLoginLink, demoSignIn } from "./actions";
 import { isDemo } from "@/lib/supabase";
 
@@ -25,7 +26,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
               <label htmlFor="email">Work email</label>
               <input id="email" name="email" type="email" autoComplete="email" required />
             </div>
-            <button className="btn" type="submit">Email me a sign-in link</button>
+            <SubmitButton pending="Sending…">Email me a sign-in link</SubmitButton>
             {sp.error && <p className="notice warn">{sp.error}</p>}
             <p className="muted small">Only people an owner has added can sign in.</p>
           </form>

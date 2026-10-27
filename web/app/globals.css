@@ -266,3 +266,23 @@ input, select {
 .wordmark { display: inline-flex; align-items: center; line-height: 0; }
 .wordmark img { height: 44px; width: auto; display: block; }
 @media (max-width: 480px) { .wordmark img { height: 38px; } }
+
+/* ---------- loading feedback ---------- */
+.nav-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100; pointer-events: none; opacity: 0; overflow: hidden; }
+.nav-progress.on { opacity: 1; }
+.nav-progress::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; background: var(--glass); border-radius: 0 3px 3px 0;
+  animation: nav-slide 1.1s ease-in-out infinite; }
+@keyframes nav-slide { from { left: -40%; } to { left: 100%; } }
+html.is-navigating main { opacity: 0.55; transition: opacity 0.2s ease 0.25s; pointer-events: none; }
+main { transition: opacity 0.15s ease; }
+a[data-pending], summary[data-pending], button[data-pending] { cursor: progress; }
+.periods a[data-pending], .nav a[data-pending], .subnav a[data-pending] { background: var(--glass-soft); color: var(--slate); animation: pend 1s ease-in-out infinite; }
+@keyframes pend { 50% { opacity: 0.55; } }
+.btn[disabled] { opacity: 0.75; cursor: progress; }
+.spinner { display: inline-block; width: 0.9em; height: 0.9em; margin-right: 8px; vertical-align: -0.12em; border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress::before { animation: none; left: 0; width: 100%; opacity: 0.6; }
+  .periods a[data-pending], .nav a[data-pending], .subnav a[data-pending], .spinner { animation: none; }
+}

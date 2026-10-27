@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Shell, requireSession } from "@/components/Shell";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Periods } from "@/components/Periods";
 import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards, getTeamUpsellRates } from "@/lib/data";
 import { resolvePeriod, type PeriodParams, periodQuery } from "@/lib/periods";
@@ -147,13 +148,13 @@ export default async function Team({ searchParams }: { searchParams: Promise<Per
                   <label style={{ display: "flex", gap: 6, alignItems: "center", margin: 0, fontWeight: 500 }}>
                     <input type="checkbox" name="tracks_time" defaultChecked={m.tracks_time} style={{ width: "auto" }} /> Clocks in
                   </label>
-                  <button className="btn" type="submit">Save</button>
+                  <SubmitButton>Save</SubmitButton>
                 </div>
               </form>
               {m.email && !m.signed_in && m.active && (
                 <form action={inviteMember} style={{ gridColumn: "1 / -1" }}>
                   <input type="hidden" name="id" value={m.id} />
-                  <button className="btn quiet" type="submit">Email {m.full_name.split(" ")[0]} a sign-in invite</button>
+                  <SubmitButton className="btn quiet" pending="Sending…">Email {m.full_name.split(" ")[0]} a sign-in invite</SubmitButton>
                 </form>
               )}
             </div>
@@ -177,7 +178,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<Per
             </fieldset>
             <div><label htmlFor="s-t">Trucks</label><input id="s-t" name="trucks" inputMode="numeric" defaultValue={settings.trucks} /></div>
             <div><label htmlFor="s-pb">Plan bonus ($)</label><input id="s-pb" name="plan_bonus" inputMode="decimal" defaultValue={settings.plan_bonus ?? 10} /></div>
-            <div><button className="btn" type="submit">Save settings</button></div>
+            <div><SubmitButton>Save settings</SubmitButton></div>
           </form>
         </section>
       </main>
