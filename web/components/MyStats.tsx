@@ -1,7 +1,7 @@
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getCompanySummary, getMyCommission, getMyEarnings, getMyJobs, getMyPlanSales, getMyReviews, getMyUpsellRate, getMyScorecard, getMyToday } from "@/lib/data";
-import { previousPeriod, type resolvePeriod } from "@/lib/periods";
+import { periodPhrase, previousPeriod, type resolvePeriod } from "@/lib/periods";
 import * as ch from "@/lib/change";
 
 type Period = ReturnType<typeof resolvePeriod>;
@@ -59,7 +59,7 @@ export async function MyStats({ period, first, base, viewAs }: { period: Period;
         )}
 
         <section className="me-hero" aria-label="Your revenue">
-          <div className="muted">Revenue from your completed jobs, {period.label.toLowerCase()}</div>
+          <div className="muted">Revenue from your completed jobs, {periodPhrase(period)}</div>
           <div className="stat-row"><div className="figure">{money(me.revenue_credited)}</div>{heroChg && <span className={`chg ${heroChg.tone}`} title={heroChg.title}>{heroChg.text}</span>}</div>
           <p className="muted small" style={{ maxWidth: "60ch" }}>
             Shared jobs are split evenly between everyone assigned to them.

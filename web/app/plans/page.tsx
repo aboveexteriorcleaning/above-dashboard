@@ -3,7 +3,7 @@ import { Periods } from "@/components/Periods";
 import { BarRows, Stat, Trend } from "@/components/charts";
 import { PlanSheet } from "@/components/PlanSheet";
 import { getPlanCustomers, getPlanExtras, getPlanKpis } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 
 const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
-export default async function Plans({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Plans({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const prev = previousPeriod(period);
   const [k, customers, x, pk, px] = await Promise.all([getPlanKpis(period.from, period.to), getPlanCustomers(), getPlanExtras(period.from, period.to),
     prev ? getPlanKpis(prev.from, prev.to) : null, prev ? getPlanExtras(prev.from, prev.to) : null]);
@@ -27,7 +27,7 @@ export default async function Plans({ searchParams }: { searchParams: Promise<{ 
           <div>
             <h1>Maintenance plans</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>
-              {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+              {periodLine(period, shortDate)}
             </p>
           </div>
           <Periods current={period.key} base="/plans" period={period} />

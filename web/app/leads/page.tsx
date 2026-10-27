@@ -3,7 +3,7 @@ import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { LeadSheet } from "@/components/LeadSheet";
 import { getLeadKpis, getLeadList, getQuoFreshness } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine, periodPhrase } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { hours, minutes, money, n, pct, shortDate, timeAgo } from "@/lib/format";
 
@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 
 const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
 
-export default async function Leads({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Leads({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const fresh = await getQuoFreshness();
 
   if (!fresh.connected) {
@@ -47,7 +47,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
           <div>
             <h1>Leads</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>
-              {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+              {periodLine(period, shortDate)}
               <span className="small"> · Quo updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
             </p>
           </div>
@@ -214,7 +214,7 @@ export default async function Leads({ searchParams }: { searchParams: Promise<{ 
         </section>
 
         <section className="section" id="list" aria-labelledby="list-h">
-          <div className="section-head"><h2 id="list-h">Lead list</h2><span className="muted small">{n(list.length)} leads, {period.label.toLowerCase()}</span></div>
+          <div className="section-head"><h2 id="list-h">Lead list</h2><span className="muted small">{n(list.length)} leads, {periodPhrase(period)}</span></div>
           <LeadSheet rows={list} />
         </section>
       </main>

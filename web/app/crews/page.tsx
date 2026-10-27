@@ -2,7 +2,7 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { BarRows, Stat } from "@/components/charts";
 import { getCrews } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 const per = (a: number, b: number) => (b ? a / b : null);
 const TIERS = ["Under $300", "$300–600", "$600–1,000", "$1,000–2,000", "$2,000+"];
 
-export default async function Crews({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Crews({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const prev = previousPeriod(period);
   const [c, pc] = await Promise.all([getCrews(period.from, period.to), prev ? getCrews(prev.from, prev.to) : null]);
   const gp = c.revenue - c.labor_cost, pgp = pc ? pc.revenue - pc.labor_cost : null;
@@ -23,7 +23,7 @@ export default async function Crews({ searchParams }: { searchParams: Promise<{ 
         <div className="pagehead">
           <div>
             <h1>Crew economics</h1>
-            <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
+            <p className="muted" style={{ margin: "6px 0 0" }}>{periodLine(period, shortDate)}</p>
           </div>
           <Periods current={period.key} base="/crews" period={period} />
         </div>

@@ -2,16 +2,16 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getUpsells } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 const per = (a: number, b: number) => (b ? a / b : null);
 
-export default async function Upsells({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Upsells({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const prev = previousPeriod(period);
   const [u, pu] = await Promise.all([getUpsells(period.from, period.to), prev ? getUpsells(prev.from, prev.to) : null]);
   const o = u.offers, po = pu?.offers;
@@ -22,7 +22,7 @@ export default async function Upsells({ searchParams }: { searchParams: Promise<
         <div className="pagehead">
           <div>
             <h1>Upsells</h1>
-            <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
+            <p className="muted" style={{ margin: "6px 0 0" }}>{periodLine(period, shortDate)}</p>
           </div>
           <Periods current={period.key} base="/upsells" period={period} />
         </div>

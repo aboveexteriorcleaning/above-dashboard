@@ -2,7 +2,7 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getAds, getMetaFreshness } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, moneyExact, n, pct, shortDate, timeAgo } from "@/lib/format";
 
@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 const mon = (iso: string) => new Date(iso + "T12:00:00Z").toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
 const per = (a: number, b: number) => (a && b ? a / b : null);
 
-export default async function Ads({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Ads({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const fresh = await getMetaFreshness();
 
   if (!fresh.connected) {
@@ -41,7 +41,7 @@ export default async function Ads({ searchParams }: { searchParams: Promise<{ p?
           <div>
             <h1>Ads</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>
-              {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+              {periodLine(period, shortDate)}
               <span className="small"> · Meta updated {timeAgo(fresh.last_synced)}{fresh.healthy ? "" : " (last sync had an error)"}</span>
             </p>
           </div>

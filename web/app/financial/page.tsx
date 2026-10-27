@@ -2,7 +2,7 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
 import { getFinancial } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
@@ -16,9 +16,9 @@ function dayList(days: number[]) {
   return run ? `${DAY_NAMES[d[0] - 1]}–${DAY_NAMES[d[d.length - 1] - 1]}` : d.map((x) => DAY_NAMES[x - 1]).join(", ");
 }
 
-export default async function Financial({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Financial({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const prev = previousPeriod(period);
   const [f, pf] = await Promise.all([getFinancial(period.from, period.to), prev ? getFinancial(prev.from, prev.to) : null]);
   const days = Math.round((new Date(period.to).getTime() - new Date(period.from).getTime()) / 86400000) + 1;
@@ -30,7 +30,7 @@ export default async function Financial({ searchParams }: { searchParams: Promis
         <div className="pagehead">
           <div>
             <h1>Financial</h1>
-            <p className="muted" style={{ margin: "6px 0 0" }}>{period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}</p>
+            <p className="muted" style={{ margin: "6px 0 0" }}>{periodLine(period, shortDate)}</p>
           </div>
           <Periods current={period.key} base="/financial" period={period} />
         </div>

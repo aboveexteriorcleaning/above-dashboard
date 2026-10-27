@@ -2,15 +2,15 @@ import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Aging, BarRows, MoneyFlow, Stat, Trend } from "@/components/charts";
 import { getAlerts, getOverview, getTrend } from "@/lib/data";
-import { previousPeriod, resolvePeriod } from "@/lib/periods";
+import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, n, pct, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function Overview({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
+export default async function Overview({ searchParams }: { searchParams: Promise<PeriodParams> }) {
   const session = await requireSession(["owner"]);
-  const period = resolvePeriod((await searchParams).p);
+  const period = resolvePeriod(await searchParams);
   const prev = previousPeriod(period);
   const [o, trend, al, po] = await Promise.all([getOverview(period.from, period.to), getTrend(), getAlerts(), prev ? getOverview(prev.from, prev.to) : null]);
   const r = o.revenue, pr = po?.revenue;
@@ -33,7 +33,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
               <div>
                 <h1>Business overview</h1>
                 <p className="muted" style={{ margin: "6px 0 0" }}>
-                  {period.label}, {shortDate(period.from + "T12:00:00Z")} to {shortDate(period.to + "T12:00:00Z")}
+                  {periodLine(period, shortDate)}
                 </p>
               </div>
               <Periods current={period.key} base="/overview" period={period} />

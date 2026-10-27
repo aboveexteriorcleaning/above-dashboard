@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards, getTeamUpsellRates } from "@/lib/data";
-import { resolvePeriod } from "@/lib/periods";
+import { resolvePeriod, type PeriodParams, periodQuery } from "@/lib/periods";
 import { money, moneyExact, n, pct } from "@/lib/format";
 import { inviteMember, saveMember, saveSettings } from "./actions";
 
@@ -10,10 +10,10 @@ export const dynamic = "force-dynamic";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default async function Team({ searchParams }: { searchParams: Promise<{ p?: string; ok?: string; warn?: string }> }) {
+export default async function Team({ searchParams }: { searchParams: Promise<PeriodParams & { ok?: string; warn?: string }> }) {
   const session = await requireSession(["owner"]);
   const sp = await searchParams;
-  const period = resolvePeriod(sp.p);
+  const period = resolvePeriod(sp);
   const [scores, team, comm, planSales, settings, upRates] = await Promise.all([getTeamScorecards(period.from, period.to), getTeam(), getTeamCommission(period.from, period.to), getTeamPlanSales(period.from, period.to), getSettings(), getTeamUpsellRates(period.from, period.to)]);
   const upRate = new Map(upRates.map((u) => [u.employee_id, u]));
   const ranked = [...scores].sort((a, b) => b.revenue_credited - a.revenue_credited);
@@ -26,7 +26,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
             <h1>Team</h1>
             <p className="muted" style={{ margin: "6px 0 0" }}>Only owners can see this page.</p>
           </div>
-          <Periods current={period.key} base="/team" />
+          <Periods current={period.key} base="/team" period={period} />
         </div>
 
         <section aria-labelledby="scores">
@@ -41,7 +41,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               <tbody>
                 {ranked.map((s) => (
                   <tr key={s.employee_id}>
-                    <td><Link className="person-link" href={`/team/${s.employee_id}?p=${period.key}`}>{s.full_name}</Link></td>
+                    <td><Link className="person-link" href={`/team/${s.employee_id}?${periodQuery(period)}`}>{s.full_name}</Link></td>
                     <td className="num">{money(s.revenue_credited)}</td>
                     <td className="num">{n(s.completed_jobs)}</td>
                     <td className="num">{n(s.hours)}{s.hours_source === "scheduled" && <span className="muted"> est.</span>}</td>
@@ -71,7 +71,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                 <tbody>
                   {planSales.map((p) => (
                     <tr key={p.employee_id}>
-                      <td><Link className="person-link" href={`/team/${p.employee_id}?p=${period.key}`}>{p.full_name}</Link></td>
+                      <td><Link className="person-link" href={`/team/${p.employee_id}?${periodQuery(period)}`}>{p.full_name}</Link></td>
                       <td className="num">{n(p.plans_sold)}</td>
                       <td className="num">{n(p.on_site)} / {n(p.pre_job)}</td>
                       <td className="num">{p.serviced_homes ? <>{pct(p.conversion)} <span className="muted">({n(p.converted_homes)} of {n(p.serviced_homes)})</span></> : "—"}</td>
@@ -97,7 +97,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               <tbody>
                 {comm.map((c) => (
                   <tr key={c.employee_id}>
-                    <td><Link className="person-link" href={`/team/${c.employee_id}?p=${period.key}`}>{c.full_name}</Link>{c.missing_wage && <span className="tag off" style={{ marginLeft: 8 }}>Base wage missing</span>}</td>
+                    <td><Link className="person-link" href={`/team/${c.employee_id}?${periodQuery(period)}`}>{c.full_name}</Link>{c.missing_wage && <span className="tag off" style={{ marginLeft: 8 }}>Base wage missing</span>}</td>
                     <td className="num">{n(c.commission_days)} of {n(c.work_days)}</td>
                     <td className="num">{moneyExact(c.commission_earned)}</td>
                   </tr>

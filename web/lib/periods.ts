@@ -1,6 +1,10 @@
 // Reporting periods, always on Pacific time (the business's day).
 
-export type PeriodKey = "week" | "month" | "last-month" | "30d" | "ytd" | "linked";
+export type PeriodKey = "week" | "month" | "last-month" | "30d" | "ytd" | "linked" | "custom";
+/** What to compare a custom range with. */
+export type CompareMode = "prev" | "year" | "custom" | "none";
+/** Period settings as they arrive in the page address. */
+export type PeriodParams = { p?: string; from?: string; to?: string; cmp?: string; cf?: string; ct?: string };
 
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "week", label: "This week" },
@@ -33,7 +37,15 @@ const iso = (y: number, m: number, d: number) => {
   return dt.toISOString().slice(0, 10);
 };
 
-export function resolvePeriod(key: string | undefined, now: Date = new Date()): { key: PeriodKey; from: string; to: string; label: string } {
+export function resolvePeriod(input: string | PeriodParams | undefined, now: Date = new Date()): {
+  key: PeriodKey; from: string; to: string; label: string; cmp?: CompareMode; compare?: { from: string; to: string } | null;
+} {
+  const params: PeriodParams = typeof input === "object" && input ? input : { p: input as string | undefined };
+  const key = params.p;
+  if (key === "custom") {
+    const c = customRange(params);
+    if (c) return c;
+  }
   const k = ([...PERIODS, LINKED_PERIOD].find((p) => p.key === key)?.key ?? "month") as PeriodKey;
   const t = pacificToday(now);
   const today = iso(t.y, t.m, t.d);
@@ -64,6 +76,44 @@ export function resolvePeriod(key: string | undefined, now: Date = new Date()): 
 }
 
 export type Period = ReturnType<typeof resolvePeriod>;
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const EARLIEST = "2015-01-01";
+const MAX_DAYS = 3 * 366;   // keep one page load to at most ~3 years of data
+function validDate(d: string | undefined): d is string {
+  if (!d || !ISO.test(d)) return false;
+  const [y, m, dd] = parse(d);
+  return iso(y, m, dd) === d && d >= EARLIEST && y <= 2100;
+}
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+function validRange(a: string | undefined, b: string | undefined): [string, string] | null {
+  if (!validDate(a) || !validDate(b)) return null;
+  const [f, t] = a <= b ? [a, b] : [b, a];
+  return daysBetween(f, t) <= MAX_DAYS ? [f, t] : null;
+}
+function customRange(q: PeriodParams) {
+  const r = validRange(q.from, q.to);
+  if (!r) return null;
+  const cmp: CompareMode = q.cmp === "year" || q.cmp === "custom" || q.cmp === "none" ? q.cmp : "prev";
+  const compare = cmp === "custom" ? validRange(q.cf, q.ct) : null;
+  return { key: "custom" as PeriodKey, from: r[0], to: r[1], label: rangeLabel(r[0], r[1], true), cmp,
+           compare: compare ? { from: compare[0], to: compare[1] } : null };
+}
+
+/** The address query that reproduces a period (for links that keep the period). */
+export function periodQuery(p: Period): string {
+  if (p.key !== "custom") return `p=${p.key}`;
+  const q = new URLSearchParams({ p: "custom", from: p.from, to: p.to, cmp: p.cmp ?? "prev" });
+  if (p.cmp === "custom" && p.compare) { q.set("cf", p.compare.from); q.set("ct", p.compare.to); }
+  return q.toString();
+}
+
+/** "This month, Oct 1 to Oct 26" for presets; "Aug 1–31, 2025" for custom ranges. */
+export function periodLine(p: Period, fmt: (iso: string) => string): string {
+  return p.key === "custom" ? p.label : `${p.label}, ${fmt(p.from + "T12:00:00Z")} to ${fmt(p.to + "T12:00:00Z")}`;
+}
+/** Lowercase phrase for use mid-sentence: "this month", or "Aug 1–31, 2025". */
+export const periodPhrase = (p: Period) => (p.key === "custom" ? p.label : p.label.toLowerCase());
 export type PrevPeriod = { from: string; to: string; label: string };
 
 const parse = (d: string) => d.split("-").map(Number) as [number, number, number];
@@ -83,6 +133,20 @@ function rangeLabel(from: string, to: string, withYear = false) {
  *  last month vs the month before, the last 30 days vs the 30 before, and year
  *  to date vs the same dates last year. None for "Since Oct 24". */
 export function previousPeriod(p: Period): PrevPeriod | null {
+  if (p.key === "custom") {
+    let from: string, to: string;
+    if (p.cmp === "none") return null;
+    if (p.cmp === "custom") { if (!p.compare) return null; ({ from, to } = p.compare); }
+    else if (p.cmp === "year") {
+      const [fy2, fm2, fd2] = parse(p.from), [ty2, tm2, td2] = parse(p.to);
+      from = iso(fy2 - 1, fm2, Math.min(fd2, lastDay(fy2 - 1, fm2)));
+      to = iso(ty2 - 1, tm2, Math.min(td2, lastDay(ty2 - 1, tm2)));
+    } else {   // the equal-length stretch right before
+      const len = daysBetween(p.from, p.to);
+      to = shift(p.from, -1); from = shift(to, -len);
+    }
+    return { from, to, label: rangeLabel(from, to, true) };
+  }
   const [fy, fm] = parse(p.from);
   const [ty, tm, td] = parse(p.to);
   let from: string, to: string, withYear = false;

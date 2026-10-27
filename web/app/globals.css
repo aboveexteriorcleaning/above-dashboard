@@ -245,3 +245,20 @@ input, select {
 .periods-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .compare-note { font-size: 0.8rem; color: var(--slate-2); }
 @media (max-width: 700px) { .periods-wrap { align-items: flex-start; } }
+.periods-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; justify-content: flex-end; }
+.custom-range { position: relative; }
+.custom-range > summary { list-style: none; cursor: pointer; white-space: nowrap; padding: 9px 14px; border: 1px solid var(--rule); border-radius: 22px;
+  background: var(--paper); color: var(--slate-2); font-size: 0.9rem; font-weight: 600; }
+.custom-range > summary::-webkit-details-marker { display: none; }
+.custom-range > summary::after { content: " ▾"; font-size: 0.75rem; }
+.custom-range > summary[aria-current="true"] { background: var(--glass); color: #fff; border-color: var(--glass); }
+.custom-form { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: min(340px, calc(100vw - 32px)); padding: 16px;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius-l); box-shadow: 0 12px 32px rgba(0,0,0,.12); display: grid; gap: 14px; }
+.custom-form fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.custom-form legend { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; padding: 0; }
+.custom-form label { font-weight: 400; font-size: 0.8rem; margin: 0; display: grid; gap: 4px; color: var(--slate-2); }
+.custom-form select { grid-column: 1 / -1; }
+.custom-form .cmp-dates { grid-column: 1 / -1; display: none; grid-template-columns: 1fr 1fr; gap: 8px; }
+.custom-form:has(option[value="custom"]:checked) .cmp-dates { display: grid; }
+.custom-form p { margin: 0; }
+@media (max-width: 700px) { .periods-row { justify-content: flex-start; } .custom-form { left: 0; right: auto; } }
