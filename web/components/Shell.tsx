@@ -39,7 +39,13 @@ export async function Shell({ page, session, children }: { page: Page; session: 
   return (
     <div className="shell">
       <header className="topbar">
-        <Link href="/" className="wordmark">ABOVE</Link>
+        <Link href="/" className="wordmark" aria-label="Above Exterior Cleaning, home">
+          {/* White lettering for dark mode, navy for light mode */}
+          <picture>
+            <source srcSet="/logo-dark.png" media="(prefers-color-scheme: dark)" />
+            <img src="/logo-light.png" alt="Above Exterior Cleaning" width={351} height={132} />
+          </picture>
+        </Link>
         <nav className="nav" aria-label="Main">
           {groups.map((g) => <Link key={g.key} href={g.pages[0].href} aria-current={g === current ? "page" : undefined}>{g.label}</Link>)}
         </nav>

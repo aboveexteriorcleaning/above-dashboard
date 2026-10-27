@@ -262,3 +262,7 @@ input, select {
 .custom-form:has(option[value="custom"]:checked) .cmp-dates { display: grid; }
 .custom-form p { margin: 0; }
 @media (max-width: 700px) { .periods-row { justify-content: flex-start; } .custom-form { left: 0; right: auto; } }
+
+.wordmark { display: inline-flex; align-items: center; line-height: 0; }
+.wordmark img { height: 44px; width: auto; display: block; }
+@media (max-width: 480px) { .wordmark img { height: 38px; } }
