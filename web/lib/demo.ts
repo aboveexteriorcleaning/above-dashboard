@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { UpsellRate, TeamUpsellRate, ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -323,3 +323,11 @@ export const reviews = (): ReviewKpis => ({
     { id: "r2", stars: 4, reviewer_name: "Sample Reviewer B", created_at: "2026-10-19T18:00:00Z", comment: "Windows look great, arrived a little later than planned.", replied: false, crew: "Crew member B" },
   ],
 });
+
+export const myUpsellRate = (): UpsellRate => ({ jobs: 19, upsold_jobs: 6, rate: 0.316, offered: 12, accepted: 6 });
+export const teamUpsellRates = (): TeamUpsellRate[] => [
+  { employee_id: "1", ...myUpsellRate() },
+  { employee_id: "2", jobs: 17, upsold_jobs: 4, rate: 0.235, offered: 0, accepted: 0 },
+  { employee_id: "3", jobs: 12, upsold_jobs: 4, rate: 0.333, offered: 0, accepted: 0 },
+  { employee_id: "4", jobs: 9, upsold_jobs: 2, rate: 0.222, offered: 0, accepted: 0 },
+];

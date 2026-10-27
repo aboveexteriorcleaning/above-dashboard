@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
-import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards } from "@/lib/data";
+import { getSettings, getTeam, getTeamCommission, getTeamPlanSales, getTeamScorecards, getTeamUpsellRates } from "@/lib/data";
 import { resolvePeriod } from "@/lib/periods";
 import { money, moneyExact, n, pct } from "@/lib/format";
 import { inviteMember, saveMember, saveSettings } from "./actions";
@@ -14,7 +14,8 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
   const session = await requireSession(["owner"]);
   const sp = await searchParams;
   const period = resolvePeriod(sp.p);
-  const [scores, team, comm, planSales, settings] = await Promise.all([getTeamScorecards(period.from, period.to), getTeam(), getTeamCommission(period.from, period.to), getTeamPlanSales(period.from, period.to), getSettings()]);
+  const [scores, team, comm, planSales, settings, upRates] = await Promise.all([getTeamScorecards(period.from, period.to), getTeam(), getTeamCommission(period.from, period.to), getTeamPlanSales(period.from, period.to), getSettings(), getTeamUpsellRates(period.from, period.to)]);
+  const upRate = new Map(upRates.map((u) => [u.employee_id, u]));
   const ranked = [...scores].sort((a, b) => b.revenue_credited - a.revenue_credited);
 
   return (
@@ -34,7 +35,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
             <table className="rows" style={{ minWidth: 760 }}>
               <thead><tr>
                 <th>Person</th><th className="num">Revenue</th><th className="num">Jobs</th><th className="num">Hours</th>
-                <th className="num">Per hour</th><th className="num">Per day</th><th className="num">Upsells</th>
+                <th className="num">Per hour</th><th className="num">Per day</th><th className="num">Upsells</th><th className="num">Upsell conv.</th>
 <th className="num">Quotes approved / sent</th><th className="num">Callbacks</th>
               </tr></thead>
               <tbody>
@@ -47,6 +48,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
                     <td className="num">{money(s.revenue_per_hour)}</td>
                     <td className="num">{money(s.revenue_per_day)}</td>
                     <td className="num">{money(s.upsell_revenue)}</td>
+                    <td className="num">{upRate.get(s.employee_id)?.jobs ? pct(upRate.get(s.employee_id)!.rate) : "—"}</td>
                     <td className="num">{s.quotes_sent || s.quotes_approved ? `${n(s.quotes_approved)} / ${n(s.quotes_sent)}` : "—"}</td>
                     <td className={`num${s.callbacks ? " down" : ""}`}>{n(s.callbacks)}</td>
                   </tr>
@@ -54,7 +56,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               </tbody>
             </table>
           </div>
-          <p className="muted small">Shared jobs are split evenly between everyone assigned. Hours are clocked time for people who clock in, and scheduled visit time (est.) for people who don&rsquo;t. Quotes count as approved in the period they were approved and as sent in the period they were sent. Compare people with similar roles and job mix.</p>
+          <p className="muted small">Shared jobs are split evenly between everyone assigned. Hours are clocked time for people who clock in, and scheduled visit time (est.) for people who don&rsquo;t. Upsell conversion is the share of their completed jobs where a service was added on site. Quotes count as approved in the period they were approved and as sent in the period they were sent. Compare people with similar roles and job mix.</p>
         </section>
 
         <section className="section" aria-labelledby="plans-h">

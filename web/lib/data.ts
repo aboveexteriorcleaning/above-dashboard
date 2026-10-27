@@ -376,6 +376,17 @@ export async function getReviews(from: string, to: string): Promise<ReviewKpis> 
   if (isDemo()) return demo.reviews();
   return await rpc<ReviewKpis>("owner_reviews", { p_from: from, p_to: to });
 }
+export type UpsellRate = { jobs: number; upsold_jobs: number; rate: number | null; offered: number; accepted: number };
+export type TeamUpsellRate = UpsellRate & { employee_id: string };
+export async function getMyUpsellRate(from: string, to: string, viewAs?: string): Promise<UpsellRate> {
+  if (isDemo()) return demo.myUpsellRate();
+  const rows = await rpc<any[]>("my_upsell_rate", { p_from: from, p_to: to }, viewAs);
+  return numify<UpsellRate>(rows?.[0] ?? { jobs: 0, upsold_jobs: 0, rate: null, offered: 0, accepted: 0 });
+}
+export async function getTeamUpsellRates(from: string, to: string): Promise<TeamUpsellRate[]> {
+  if (isDemo()) return demo.teamUpsellRates();
+  return (await rpc<any[]>("team_upsell_rates", { p_from: from, p_to: to })).map((r) => numify<TeamUpsellRate>(r));
+}
 export async function getMyReviews(from: string, to: string, viewAs?: string): Promise<{ reviews: number; average: number | null; five_star: number }> {
   if (isDemo()) return { reviews: 3, average: 5, five_star: 3 };
   const rows = await rpc<any[]>("my_reviews", { p_from: from, p_to: to }, viewAs);

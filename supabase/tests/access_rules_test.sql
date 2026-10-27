@@ -996,4 +996,22 @@ end $$;
 reset request.headers;
 reset role;
 
+-- ---------- upsell conversion per person ----------
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare r record; n int; begin
+  select * into r from public.my_upsell_rate('2026-10-01','2026-10-31');
+  select count(*) into n from public.my_jobs('2026-10-01','2026-10-31');
+  assert r.jobs = n, format('upsell rate counts the same jobs as the job list (%s vs %s)', r.jobs, n);
+  assert r.upsold_jobs <= r.jobs and (r.jobs = 0 or r.rate = round(r.upsold_jobs::numeric / r.jobs, 3)), format('rate %s', row_to_json(r));
+end $$;
+select pg_temp.expect_fail('select * from public.team_upsell_rates(''2026-10-01'',''2026-10-31'')', 'crew -> team upsell rates');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare n int; begin
+  select count(*) into n from public.team_upsell_rates('2026-10-01','2026-10-31');
+  assert n >= 4, 'owners see everyone''s upsell rate';
+  raise notice 'ok  upsell conversion: own rate for crew, team rates for owners';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

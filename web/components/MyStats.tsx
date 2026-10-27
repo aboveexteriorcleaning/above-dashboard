@@ -1,6 +1,6 @@
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
-import { getCompanySummary, getMyCommission, getMyJobs, getMyPlanSales, getMyReviews, getMyScorecard, getMyToday } from "@/lib/data";
+import { getCompanySummary, getMyCommission, getMyJobs, getMyPlanSales, getMyReviews, getMyUpsellRate, getMyScorecard, getMyToday } from "@/lib/data";
 import type { resolvePeriod } from "@/lib/periods";
 
 type Period = ReturnType<typeof resolvePeriod>;
@@ -10,9 +10,9 @@ import { hm, money, moneyExact, n, pct, shortDate } from "@/lib/format";
 // Crew see this for themselves on My stats. Owners see the same page for a team member
 // (`viewAs`), which the database honours only for owners.
 export async function MyStats({ period, first, base, viewAs }: { period: Period; first?: string; base: string; viewAs?: string }) {
-  const [me, jobs, co, plans, rv] = await Promise.all([
+  const [me, jobs, co, plans, rv, up] = await Promise.all([
     getMyScorecard(period.from, period.to, viewAs), getMyJobs(period.from, period.to, viewAs), getCompanySummary(period.from, period.to),
-    getMyPlanSales(period.from, period.to, viewAs), getMyReviews(period.from, period.to, viewAs),
+    getMyPlanSales(period.from, period.to, viewAs), getMyReviews(period.from, period.to, viewAs), getMyUpsellRate(period.from, period.to, viewAs),
   ]);
   // Commission vs hourly applies to people who clock in.
   const clocks = me.hours_source === "clocked";
@@ -109,6 +109,8 @@ export async function MyStats({ period, first, base, viewAs }: { period: Period;
         <section className="section" aria-label="Your sales">
           <div className="stats">
             <Stat value={money(me.upsell_revenue)} label="Upsells" note="Services added on site, plus optional items you sold on quotes" />
+            {up.jobs > 0 && <Stat value={pct(up.rate)} label="Upsell conversion"
+              note={`Added a service on site at ${n(up.upsold_jobs)} of your ${n(up.jobs)} jobs${up.offered ? `; ${n(up.accepted)} of ${n(up.offered)} offers accepted (${pct(up.accepted / up.offered)})` : ""}`} />}
             <Stat value={n(plans.plans_sold)} label="Maintenance plans sold"
               note={plans.plans_sold ? `${money(plans.value_sold)} a year in plan work` : undefined} />
             {plans.serviced_homes > 0 && <Stat value={pct(plans.conversion)} label="Plan conversion"
