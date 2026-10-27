@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { UpsellRate, TeamUpsellRate, ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { Earnings, UpsellRate, TeamUpsellRate, ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -331,3 +331,4 @@ export const teamUpsellRates = (): TeamUpsellRate[] => [
   { employee_id: "3", jobs: 12, upsold_jobs: 4, rate: 0.333, offered: 0, accepted: 0 },
   { employee_id: "4", jobs: 9, upsold_jobs: 2, rate: 0.222, offered: 0, accepted: 0 },
 ];
+export const myEarnings = (): Earnings => ({ upsell_value: 410, upsell_commission: 46.5, upsell_commission_all_days: 61.5, plans_sold: 3, plan_bonus_each: 10, plan_earnings: 30 });

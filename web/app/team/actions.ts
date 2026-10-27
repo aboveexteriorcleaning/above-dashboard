@@ -91,12 +91,14 @@ export async function saveSettings(form: FormData) {
   const drive = Number(form.get("drive_hours_per_day"));
   const weekdays = form.getAll("work_weekdays").map((v) => Math.trunc(Number(v))).filter((d) => d >= 1 && d <= 7);
   const trucks = Math.trunc(Number(form.get("trucks")));
+  const planBonus = Number(form.get("plan_bonus") ?? 10);
   if (!(hours >= 1 && hours <= 16)) back("Crew hours per day should be between 1 and 16.", "warn");
   if (!(drive >= 0 && drive < hours)) back("Drive time should be at least 0 and less than the crew day.", "warn");
   if (weekdays.length === 0) back("Pick at least one work day.", "warn");
   if (!(trucks >= 1 && trucks <= 50)) back("Trucks should be between 1 and 50.", "warn");
+  if (!(planBonus >= 0 && planBonus <= 1000)) back("Plan bonus should be between $0 and $1,000.", "warn");
   const sb = await supabaseForUser();
-  const { error } = await sb.from("business_settings").update({ crew_hours_per_day: hours, drive_hours_per_day: drive, work_weekdays: [...new Set(weekdays)].sort(), trucks, updated_at: new Date().toISOString() }).eq("id", true);
+  const { error } = await sb.from("business_settings").update({ crew_hours_per_day: hours, drive_hours_per_day: drive, work_weekdays: [...new Set(weekdays)].sort(), trucks, plan_bonus: planBonus, updated_at: new Date().toISOString() }).eq("id", true);
   if (error) back(`Couldn't save settings: ${error.message}`, "warn");
   revalidatePath("/financial");
   back("Settings saved.");

@@ -337,7 +337,7 @@ export async function getPlanExtras(from: string, to: string): Promise<PlanExtra
 
 // ---------- financial + alerts (owners) ----------
 export type FinancialKpis = {
-  settings: { crew_hours_per_day: number; drive_hours_per_day: number; work_weekdays: number[]; trucks: number };
+  settings: { crew_hours_per_day: number; drive_hours_per_day: number; work_weekdays: number[]; trucks: number; plan_bonus?: number };
   revenue: number; invoiced: number; collected: number; labor_cost: number; headcount: number; field_headcount: number;
   open_ar: number; invoiced_90d: number; available_hours: number; scheduled_hours: number;
   next7_available: number; next7_booked: number; next14_available: number; next14_booked: number;
@@ -359,10 +359,10 @@ export async function getAlerts(): Promise<Alerts> {
   return await rpc<Alerts>("owner_alerts");
 }
 export async function getSettings(): Promise<FinancialKpis["settings"]> {
-  if (isDemo()) return { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2 };
+  if (isDemo()) return { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2, plan_bonus: 10 };
   const sb = await supabaseForUser();
-  const { data } = await sb.from("business_settings").select("crew_hours_per_day, drive_hours_per_day, work_weekdays, trucks").limit(1).maybeSingle();
-  return (data as any) ?? { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2 };
+  const { data } = await sb.from("business_settings").select("crew_hours_per_day, drive_hours_per_day, work_weekdays, trucks, plan_bonus").limit(1).maybeSingle();
+  return (data as any) ?? { crew_hours_per_day: 8, drive_hours_per_day: 1, work_weekdays: [1, 2, 3, 4, 5], trucks: 2, plan_bonus: 10 };
 }
 
 // ---------- Google reviews ----------
@@ -386,6 +386,13 @@ export async function getMyUpsellRate(from: string, to: string, viewAs?: string)
 export async function getTeamUpsellRates(from: string, to: string): Promise<TeamUpsellRate[]> {
   if (isDemo()) return demo.teamUpsellRates();
   return (await rpc<any[]>("team_upsell_rates", { p_from: from, p_to: to })).map((r) => numify<TeamUpsellRate>(r));
+}
+export type Earnings = { upsell_value: number; upsell_commission: number; upsell_commission_all_days: number;
+  plans_sold: number; plan_bonus_each: number; plan_earnings: number };
+export async function getMyEarnings(from: string, to: string, viewAs?: string): Promise<Earnings> {
+  if (isDemo()) return demo.myEarnings();
+  const rows = await rpc<any[]>("my_earnings", { p_from: from, p_to: to }, viewAs);
+  return numify<Earnings>(rows[0]);
 }
 export async function getMyReviews(from: string, to: string, viewAs?: string): Promise<{ reviews: number; average: number | null; five_star: number }> {
   if (isDemo()) return { reviews: 3, average: 5, five_star: 3 };

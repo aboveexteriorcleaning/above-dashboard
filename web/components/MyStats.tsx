@@ -1,6 +1,6 @@
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
-import { getCompanySummary, getMyCommission, getMyJobs, getMyPlanSales, getMyReviews, getMyUpsellRate, getMyScorecard, getMyToday } from "@/lib/data";
+import { getCompanySummary, getMyCommission, getMyEarnings, getMyJobs, getMyPlanSales, getMyReviews, getMyUpsellRate, getMyScorecard, getMyToday } from "@/lib/data";
 import type { resolvePeriod } from "@/lib/periods";
 
 type Period = ReturnType<typeof resolvePeriod>;
@@ -16,7 +16,9 @@ export async function MyStats({ period, first, base, viewAs }: { period: Period;
   ]);
   // Commission vs hourly applies to people who clock in.
   const clocks = me.hours_source === "clocked";
-  const [comm, today] = clocks ? await Promise.all([getMyCommission(period.from, period.to, viewAs), getMyToday(viewAs)]) : [null, null];
+  const [comm, today, earn] = clocks
+    ? await Promise.all([getMyCommission(period.from, period.to, viewAs), getMyToday(viewAs), getMyEarnings(period.from, period.to, viewAs)])
+    : [null, null, null];
 
   return (
     <>
@@ -74,6 +76,12 @@ export async function MyStats({ period, first, base, viewAs }: { period: Period;
               <Stat value={moneyExact(comm.summary.commission_earned)} label="Commission earned" note="On days commission beat hourly" />
               <Stat value={`${n(comm.summary.commission_days)} of ${n(comm.summary.work_days)}`} label="Commission days"
                 note={comm.summary.work_days ? `${pct(comm.summary.commission_days / comm.summary.work_days)} of your work days` : undefined} />
+              {earn && <Stat value={moneyExact(earn.upsell_commission)} label="Upsell earnings"
+                note={earn.upsell_value
+                  ? `Commission on ${money(earn.upsell_value)} of on-site upsells, on days commission beat hourly${earn.upsell_commission_all_days > earn.upsell_commission ? ` (${moneyExact(earn.upsell_commission_all_days - earn.upsell_commission)} more fell on hourly days)` : ""}`
+                  : "Commission on services you add on site"} />}
+              {earn && <Stat value={moneyExact(earn.plan_earnings)} label="Plan earnings"
+                note={`${n(earn.plans_sold)} ${earn.plans_sold === 1 ? "plan" : "plans"} sold × ${money(earn.plan_bonus_each)}`} />}
             </div>
             {comm.days.length > 0 && (
               <div style={{ overflowX: "auto", marginTop: 20 }}>

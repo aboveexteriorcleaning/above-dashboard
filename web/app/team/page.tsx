@@ -176,6 +176,7 @@ export default async function Team({ searchParams }: { searchParams: Promise<{ p
               </div>
             </fieldset>
             <div><label htmlFor="s-t">Trucks</label><input id="s-t" name="trucks" inputMode="numeric" defaultValue={settings.trucks} /></div>
+            <div><label htmlFor="s-pb">Plan bonus ($)</label><input id="s-pb" name="plan_bonus" inputMode="decimal" defaultValue={settings.plan_bonus ?? 10} /></div>
             <div><button className="btn" type="submit">Save settings</button></div>
           </form>
         </section>

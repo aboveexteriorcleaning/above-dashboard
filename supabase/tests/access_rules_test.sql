@@ -1014,4 +1014,32 @@ do $$ declare n int; begin
 end $$;
 reset role;
 
+-- ---------- plan and upsell earnings ----------
+-- A two-person job (Sage + Connor) with a $200 on-site upsell and a plan line added on site.
+insert into public.clients (id, name) values ('CE1', 'Earnings customer');
+insert into public.quotes (id, client_id, status, total, created_at, sent_at, approved_at) values
+  ('QE1', 'CE1', 'converted', 500, '2026-09-01', '2026-09-01', '2026-09-02');
+insert into public.quote_line_items values ('QE1a', 'QE1', 'Exterior Window Cleaning', 1, 500, 500, false, 0);
+insert into public.jobs (id, client_id, quote_id, title, status, total, created_at, start_at, completed_at) values
+  ('JE1', 'CE1', 'QE1', 'Windows', 'archived', 700, '2026-09-02', '2026-09-15 17:00+00', '2026-09-15 22:00+00');
+insert into public.job_line_items (id, job_id, product_name, total_price, is_plan_discount, is_onsite_upsell) values
+  ('JE1a', 'JE1', 'Exterior Window Cleaning', 500, false, false),
+  ('JE1b', 'JE1', 'Gutter Cleaning', 200, false, true);
+insert into public.visits (id, job_id, status, start_at, end_at, completed_at) values
+  ('VE1', 'JE1', 'completed', '2026-09-15 17:00+00', '2026-09-15 22:00+00', '2026-09-15 22:00+00');
+insert into public.visit_assignments values ('VE1', '11111111-0000-0000-0000-00000000000c'), ('VE1', '11111111-0000-0000-0000-00000000000d');
+update public.business_settings set plan_bonus = 10;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ declare e record; p record; begin
+  select * into e from public.my_earnings('2026-09-15','2026-09-15');
+  assert e.upsell_value = 200, format('upsell value %s', e.upsell_value);
+  assert e.upsell_commission_all_days = 30, format('two-person rate on the upsell: %s', e.upsell_commission_all_days);
+  select * into p from public.my_plan_sales('2026-09-01','2026-09-30');
+  select * into e from public.my_earnings('2026-09-01','2026-09-30');
+  assert e.plan_earnings = p.plans_sold * 10, format('plan earnings %s for %s plans', e.plan_earnings, p.plans_sold);
+  raise notice 'ok  earnings: upsell commission at the crew rate, $10 per plan sold';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED
