@@ -86,6 +86,7 @@ jobs:
                    supabase/migrations/20261026000035_view_as.sql \
                    supabase/migrations/20261026000036_upsell_rate.sql \
                    supabase/migrations/20261026000037_earnings.sql \
+                   supabase/migrations/20261027000038_converted_counts_as_approved.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -133,7 +134,8 @@ jobs:
                    ../migrations/20261025000034_capacity_calendar.sql \
                    ../migrations/20261026000035_view_as.sql \
                    ../migrations/20261026000036_upsell_rate.sql \
-                   ../migrations/20261026000037_earnings.sql; do
+                   ../migrations/20261026000037_earnings.sql \
+                   ../migrations/20261027000038_converted_counts_as_approved.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/

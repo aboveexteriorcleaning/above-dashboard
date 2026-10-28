@@ -1042,4 +1042,30 @@ do $$ declare e record; p record; begin
 end $$;
 reset role;
 
+-- ---------- converted quotes count as approved ----------
+insert into public.clients (id, name) values ('CQ1', 'Converted by the team');
+insert into public.quotes (id, client_id, status, total, created_at, sent_at, approved_at, converted_at) values
+  ('QC1', 'CQ1', 'converted', 500, '2026-10-02', '2026-10-02', null, '2026-10-05 18:00+00'),   -- conversion date known
+  ('QC2', 'CQ1', 'converted', 400, '2026-10-02', '2026-10-02', null, null),                    -- only the job's date
+  ('QC3', 'CQ1', 'converted', 300, '2026-10-02', '2026-10-02', '2026-10-03 18:00+00', '2026-10-04 18:00+00');  -- real approval
+insert into public.jobs (id, client_id, quote_id, title, status, total, created_at) values
+  ('JC2', 'CQ1', 'QC2', 'From QC2', 'active', 400, '2026-10-06 18:00+00');
+do $$ declare r record; begin
+  select approved_at, approval_inferred into r from public.quotes where id = 'QC1';
+  assert r.approved_at = '2026-10-05 18:00+00' and r.approval_inferred, format('QC1 %s', row_to_json(r));
+  select approved_at, approval_inferred into r from public.quotes where id = 'QC2';
+  assert r.approved_at = '2026-10-06 18:00+00' and r.approval_inferred, format('QC2 from its job %s', row_to_json(r));
+  select approved_at, approval_inferred into r from public.quotes where id = 'QC3';
+  assert r.approved_at = '2026-10-03 18:00+00' and not r.approval_inferred, 'real approval date kept';
+  -- a sync that resends the quote without an approval date keeps the filled-in date
+  update public.quotes set approved_at = null where id = 'QC1';
+  select approved_at, approval_inferred into r from public.quotes where id = 'QC1';
+  assert r.approved_at = '2026-10-05 18:00+00' and r.approval_inferred, 'refilled after a sync';
+  -- if Jobber later gets a real approval date, it wins
+  update public.quotes set approved_at = '2026-10-04 12:00+00' where id = 'QC1';
+  select approved_at, approval_inferred into r from public.quotes where id = 'QC1';
+  assert r.approved_at = '2026-10-04 12:00+00' and not r.approval_inferred, 'Jobber approval date replaces the filled-in one';
+  raise notice 'ok  quotes: converted without an approval date count as approved when converted';
+end $$;
+
 \echo ALL ACCESS TESTS PASSED
