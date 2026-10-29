@@ -1,6 +1,7 @@
 // Google sends the owner back here after "Allow access".
 import { db } from "../_shared/db.ts";
 import { accountsUrl, exchangeCode, googleGet, storeGoogleTokens } from "../_shared/google.ts";
+import { SHEETS_SCOPE, storeSheetsLogin } from "../_shared/sheets.ts";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const page = (msg: string, status = 200) =>
@@ -17,13 +18,20 @@ Deno.serve(async (req) => {
   const sql = db();
   const [row] = await sql`
     delete from private.oauth_states
-    where state = ${state} and provider = 'google' and created_at > now() - interval '15 minutes'
-    returning code_verifier`;
+    where state = ${state} and provider in ('google', 'google_sheets') and created_at > now() - interval '15 minutes'
+    returning code_verifier, provider`;
   if (!row) return page("This link expired or was already used. Start again from the Connect Google link.", 400);
 
   try {
     const t = await exchangeCode(code, row.code_verifier, `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-oauth-callback`);
     if (!t.refresh) throw new Error("Google did not return a refresh token");
+    if (row.provider === "google_sheets") {
+      const granted = String(t.scope ?? "").split(" ").filter(Boolean);
+      if (!granted.includes(SHEETS_SCOPE)) return page("Google didn't grant read access to Sheets. Start again and tick the Sheets box.", 400);
+      if (granted.some((s) => s !== SHEETS_SCOPE)) return page("Refused: more than read-only Sheets access was granted. Nothing was saved.", 400);
+      await storeSheetsLogin(t.access, t.refresh, t.expiresAt, "Google Sheets (read-only)");
+      return page("Connected to Google Sheets, read-only. The dashboard only reads the Meta lead sheet. You can close this tab.");
+    }
     const accounts = (await googleGet(accountsUrl(), t.access)).accounts ?? [];
     if (!accounts.length) return page("This Google account doesn't manage any Business Profiles. Sign in with the account that owns Above's profile.", 400);
     const acct = accounts[0];

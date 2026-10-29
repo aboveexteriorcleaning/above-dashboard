@@ -53,7 +53,9 @@ Deno.test("sheets: phone numbers normalize to +1", () => {
 Deno.test("sheets tripwire: no other code touches Google Sheets", async () => {
   const root = new URL("../../../", import.meta.url).pathname;
   const allowed = new Set(["supabase/functions/_shared/sheets.ts", "supabase/functions/tests/sheets_test.ts", "supabase/functions/leads-sheet-sync/index.ts",
-    "supabase/functions/tests/google_test.ts"]);   // only names the sheets client in its allow-list
+    "supabase/functions/tests/google_test.ts",
+    // the shared Google sign-in pages hand out / save the read-only Sheets login
+    "supabase/functions/google-connect/index.ts", "supabase/functions/google-oauth-callback/index.ts"]);   // only names the sheets client in its allow-list
   const hits: string[] = [];
   async function walk(dir: string) {
     for await (const e of Deno.readDir(root + dir)) {
@@ -72,4 +74,12 @@ Deno.test("sheets tripwire: no other code touches Google Sheets", async () => {
   assertEquals([...new Set(methods)].sort(), ["GET", "POST"], "only GET reads plus the token POST");
   assertEquals(methods.filter((m) => m === "POST").length, 1, "exactly one POST: the sign-in token request");
   assert(client.includes("spreadsheets.readonly"), "asks Google for read-only access");
+});
+
+Deno.test("sheets sign-in asks Google for read-only Sheets only", async () => {
+  const root = new URL("../../../", import.meta.url).pathname;
+  const connect = await Deno.readTextFile(root + "supabase/functions/google-connect/index.ts");
+  assert(/sheets \? SHEETS_SCOPE : SCOPE/.test(connect), "for=sheets requests only the Sheets scope");
+  const cb = await Deno.readTextFile(root + "supabase/functions/google-oauth-callback/index.ts");
+  assert(cb.includes("more than read-only Sheets access"), "callback refuses a login with extra access");
 });

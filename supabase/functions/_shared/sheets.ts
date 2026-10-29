@@ -1,11 +1,14 @@
 // Read-only Google Sheets client for the Meta lead sheet.
 // Two locks:
-//  1. Google's: the service account is shared on the sheet as Viewer only, and the
-//     token asks for the spreadsheets.readonly scope, so Google refuses any edit.
+//  1. Google's: access is granted with the spreadsheets.readonly scope only (an owner
+//     signs in once through google-connect?for=sheets, or a service account shared as
+//     Viewer), so Google refuses any edit to any sheet.
 //  2. This file's: data requests are GET only, and only to the one spreadsheet
 //     named in LEADS_SHEET_ID (its tab list, and reading cell values). The single
 //     POST allowed is to Google's token endpoint, to swap a signed request for a
 //     short-lived access token.
+
+import { db } from "./db.ts";
 
 export class SheetsReadOnlyViolation extends Error {}
 
@@ -30,15 +33,15 @@ export function assertSheetsRequest(url: URL, init: RequestInit, sheetId: string
   if (!ok) throw new SheetsReadOnlyViolation(`Blocked: ${url.origin}${url.pathname} is not a read of the lead sheet.`);
 }
 
-// ---------- service account sign-in ----------
+// ---------- sign-in: an owner's read-only Google login, or a service account ----------
 type ServiceAccount = { client_email: string; private_key: string };
 
 const b64url = (b: Uint8Array | string) =>
   btoa(typeof b === "string" ? b : String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-function serviceAccount(): ServiceAccount {
+function serviceAccount(): ServiceAccount | null {
   const raw = Deno.env.get("GOOGLE_SHEETS_SERVICE_ACCOUNT");
-  if (!raw) throw new Error("GOOGLE_SHEETS_SERVICE_ACCOUNT is not set");
+  if (!raw) return null;
   const sa = JSON.parse(raw);
   if (!sa.client_email || !sa.private_key) throw new Error("GOOGLE_SHEETS_SERVICE_ACCOUNT is missing client_email or private_key");
   return sa;
@@ -55,25 +58,62 @@ async function signedAssertion(sa: ServiceAccount): Promise<string> {
   return `${header}.${claims}.${b64url(sig)}`;
 }
 
-let cached: { token: string; until: number; email: string } | null = null;
+let cached: { token: string; until: number } | null = null;
+
+/** The owner's stored read-only Google login (from google-connect?for=sheets), if any. */
+async function storedLogin(): Promise<{ refresh_token: string; account_name: string | null } | null> {
+  const [row] = await db()`select refresh_token, account_name from private.integration_tokens where provider = 'google_sheets'`;
+  return row ? { refresh_token: row.refresh_token, account_name: row.account_name } : null;
+}
+
+export async function sheetsConnected(): Promise<boolean> {
+  return !!serviceAccount() || !!(await storedLogin());
+}
+
+/** Who the sheet is read as, for the check result and error hints. */
+export async function readingAs(): Promise<string> {
+  const sa = serviceAccount();
+  if (sa) return sa.client_email;
+  return (await storedLogin())?.account_name ?? "the connected Google account";
+}
 
 async function accessToken(sheetId: string, fetcher: typeof fetch): Promise<string> {
   if (cached && cached.until > Date.now() + 60_000) return cached.token;
   const sa = serviceAccount();
+  let params: Record<string, string>;
+  if (sa) {
+    params = { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: await signedAssertion(sa) };
+  } else {
+    const login = await storedLogin();
+    if (!login) throw new Error("Google Sheets isn't connected yet (open google-connect?for=sheets)");
+    const id = Deno.env.get("GOOGLE_CLIENT_ID"), secret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+    if (!id || !secret) throw new Error("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set");
+    params = { grant_type: "refresh_token", refresh_token: login.refresh_token, client_id: id, client_secret: secret };
+  }
   const init: RequestInit = {
     method: "POST", redirect: "error",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: await signedAssertion(sa) }),
+    body: new URLSearchParams(params),
   };
   assertSheetsRequest(new URL(TOKEN_URL), init, sheetId);
   const res = await fetcher(TOKEN_URL, init);
   const t = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Google sign-in failed: ${res.status} ${t.error ?? ""} ${t.error_description ?? ""}`.trim());
-  cached = { token: t.access_token, until: Date.now() + ((t.expires_in as number) ?? 3600) * 1000, email: sa.client_email };
+  if (!sa && t.scope && !String(t.scope).split(" ").every((s: string) => s === SHEETS_SCOPE)) {
+    throw new Error("Refused: the Google login has more than read-only Sheets access. Reconnect with google-connect?for=sheets.");
+  }
+  cached = { token: t.access_token, until: Date.now() + ((t.expires_in as number) ?? 3600) * 1000 };
   return cached.token;
 }
 
-export const serviceAccountEmail = () => serviceAccount().client_email;
+/** Saves the owner's read-only Sheets login (no network call). */
+export async function storeSheetsLogin(access: string, refresh: string, expiresAt: Date, accountName: string) {
+  await db()`
+    insert into private.integration_tokens (provider, access_token, refresh_token, expires_at, account_id, account_name)
+    values ('google_sheets', ${access}, ${refresh}, ${expiresAt}, 'sheets', ${accountName})
+    on conflict (provider) do update set access_token = excluded.access_token, refresh_token = excluded.refresh_token,
+      expires_at = excluded.expires_at, account_name = excluded.account_name, updated_at = now()`;
+}
 
 async function sheetsGet(url: URL, sheetId: string, fetcher: typeof fetch = fetch, attempt = 0): Promise<any> {
   const init: RequestInit = { method: "GET", redirect: "error", headers: { Authorization: `Bearer ${await accessToken(sheetId, fetcher)}`, Accept: "application/json" } };
@@ -85,7 +125,7 @@ async function sheetsGet(url: URL, sheetId: string, fetcher: typeof fetch = fetc
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const hint = res.status === 403 ? ` (share the sheet with ${serviceAccountEmail()} as Viewer, and turn on the Google Sheets API)` : "";
+    const hint = res.status === 403 ? ` (make sure ${await readingAs()} can open the sheet, and the Google Sheets API is turned on)` : "";
     throw new Error(`Google Sheets failed: HTTP ${res.status} ${body?.error?.message ?? ""}${hint}`.trim());
   }
   return body;
