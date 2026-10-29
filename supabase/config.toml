@@ -11,6 +11,7 @@ project_id = "fmpbjesfoeupybflfrbd"
 #   google-connect        -> GOOGLE_SETUP_KEY
 #   google-oauth-callback -> one-time state + PKCE
 #   google-sync           -> SYNC_KEY header
+#   leads-sheet-sync      -> SYNC_KEY header
 [functions.jobber-connect]
 verify_jwt = false
 
@@ -36,4 +37,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.google-sync]
+verify_jwt = false
+
+[functions.leads-sheet-sync]
 verify_jwt = false

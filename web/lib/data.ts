@@ -254,6 +254,15 @@ export async function getAds(from: string, to: string): Promise<AdsKpis> {
   if (isDemo()) return demo.ads();
   return await rpc<AdsKpis>("owner_ads", { p_from: from, p_to: to });
 }
+export type AdRow = { ad_id: string; name: string | null; campaign: string | null; spend: number; meta_leads: number;
+  leads: number; repeat_leads: number; matched: number; quoted: number; booked: number; booked_value: number;
+  cost_per_lead: number | null; cost_per_quoted: number | null; cost_per_booked: number | null; roas: number | null };
+export type AdsByAd = { connected: boolean; last_synced: string | null; ads: AdRow[] };
+export async function getAdsByAd(from: string, to: string): Promise<AdsByAd> {
+  if (isDemo()) return demo.adsByAd();
+  const r = await rpc<AdsByAd>("owner_ads_by_ad", { p_from: from, p_to: to });
+  return { ...r, ads: r.ads.map((x) => numify<AdRow>(x)) };
+}
 export async function getMetaFreshness(): Promise<QuoFreshness> {
   if (isDemo()) return { last_synced: new Date(Date.now() - 20 * 60_000).toISOString(), healthy: true, connected: true };
   const rows = await rpc<any[]>("meta_freshness");

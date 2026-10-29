@@ -31,7 +31,9 @@ Deno.test("google reviews map to stars and dates", () => {
 Deno.test("google tripwire: no other code touches Google's APIs", async () => {
   const root = new URL("../../../", import.meta.url).pathname;
   const allowed = new Set(["supabase/functions/_shared/google.ts", "supabase/functions/google-connect/index.ts",
-    "supabase/functions/google-oauth-callback/index.ts", "supabase/functions/google-sync/index.ts", "supabase/functions/tests/google_test.ts"]);
+    "supabase/functions/google-oauth-callback/index.ts", "supabase/functions/google-sync/index.ts", "supabase/functions/tests/google_test.ts",
+    // the separate read-only lead-sheet client has its own lock and tripwire (sheets_test.ts)
+    "supabase/functions/_shared/sheets.ts", "supabase/functions/tests/sheets_test.ts"]);
   const hits: string[] = [];
   async function walk(dir: string) {
     for await (const e of Deno.readDir(root + dir)) {

@@ -24,6 +24,8 @@ on:
           - quo-rescan       # re-read the last 120 days of Quo texts (picks up review-request flags); read-only
           - google-check     # list the connected Google Business Profile locations; saves nothing
           - google-sync      # read Google reviews now; read-only
+          - sheet-check      # list the Meta lead sheet's tabs and lead counts; saves nothing
+          - sheet-sync       # read the Meta lead sheet now (ad per lead); read-only
           - meta-check       # confirm the Meta token and ad account; reads, saves nothing
           - meta-backfill    # import ad results for the last ~2 years (read-only); turns on the hourly Meta sync
           - meta-status      # Meta sync time, date range and totals
@@ -44,6 +46,7 @@ jobs:
       QUO: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/quo-sync
       META: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/meta-sync
       GOOGLE: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/google-sync
+      SHEET: https://fmpbjesfoeupybflfrbd.supabase.co/functions/v1/leads-sheet-sync
       SYNC_KEY: ${{ secrets.SYNC_KEY }}
     steps:
       - name: Run
@@ -51,7 +54,7 @@ jobs:
           set -euo pipefail
           call() {
             echo "::group::$1"
-            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; meta:*) url="$META?${1#meta:}" ;; google:*) url="$GOOGLE?${1#google:}" ;; esac
+            url="$BASE?$1"; case "$1" in quo:*) url="$QUO?${1#quo:}" ;; meta:*) url="$META?${1#meta:}" ;; google:*) url="$GOOGLE?${1#google:}" ;; sheet:*) url="$SHEET?${1#sheet:}" ;; esac
             code=$(curl -sS -o out.json -w "%{http_code}" -X POST -H "x-sync-key: $SYNC_KEY" "$url" --max-time 400)
             cat out.json; echo; echo "::endgroup::"
             if [ "$code" != "200" ] || grep -q '"ok": false' out.json; then
@@ -92,6 +95,8 @@ jobs:
             quo-rescan)      call "quo:mode=incremental&days=120" ;;
             google-check)    call "google:mode=check" ;;
             google-sync)     call "google:mode=incremental" ;;
+            sheet-check)     call "sheet:mode=check" ;;
+            sheet-sync)      call "sheet:mode=sync" ;;
             meta-check)      call "meta:mode=check" ;;
             meta-status)     call "meta:mode=status" ;;
             meta-backfill)

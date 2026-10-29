@@ -1068,4 +1068,36 @@ do $$ declare r record; begin
   raise notice 'ok  quotes: converted without an approval date count as approved when converted';
 end $$;
 
+-- ---------- per-ad results from the lead sheet ----------
+insert into public.clients (id, name, phone) values ('CAD1', 'Ad lead booked', '+13605559001'), ('CAD2', 'Ad lead quoted', '+13605559002');
+insert into public.quotes (id, client_id, status, total, created_at, sent_at, approved_at) values
+  ('QAD1', 'CAD1', 'approved', 800, '2026-09-11', '2026-09-11 18:00+00', '2026-09-12 18:00+00'),
+  ('QAD2', 'CAD2', 'awaiting_response', 500, '2026-09-11', '2026-09-11 19:00+00', null);
+insert into public.jobs (id, client_id, quote_id, title, status, total, created_at) values ('JAD1', 'CAD1', 'QAD1', 'Gutters', 'active', 800, '2026-09-12 18:00+00');
+insert into public.ad_spend_daily (day, campaign_id, campaign_name, ad_id, ad_name, spend, meta_leads) values
+  ('2026-09-10', 'C1', 'Gutters', 'AD1', 'guttersdiff2', 200, 3), ('2026-09-11', 'C1', 'Gutters', 'AD1', 'guttersdiff2', 100, 0),
+  ('2026-09-10', 'C1', 'Gutters', 'AD2', 'gutters-video', 50, 1);
+insert into public.meta_form_leads (id, created_at, phone, ad_id, ad_name, campaign_name, sheet_tab) values
+  ('L1', '2026-09-10 18:00+00', '+13605559001', 'AD1', 'guttersdiff2', 'Gutters', 'Gutters'),   -- quoted + booked
+  ('L2', '2026-09-10 19:00+00', '+13605559002', 'AD1', 'guttersdiff2', 'Gutters', 'Gutters'),   -- quoted
+  ('L3', '2026-09-10 20:00+00', '+13605559003', 'AD1', 'guttersdiff2', 'Gutters', 'Gutters'),   -- no Jobber match
+  ('L4', '2026-09-10 21:00+00', '+13605559001', 'AD2', 'gutters-video', 'Gutters', 'Gutters');  -- same person again: first ad keeps the credit
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.expect_fail('select public.owner_ads_by_ad(''2026-09-01'',''2026-09-30'')', 'crew -> ads by ad');
+do $$ declare n int; begin select count(*) into n from public.meta_form_leads; assert n = 0, 'crew saw lead sheet rows'; end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare a jsonb; x jsonb; begin
+  a := public.owner_ads_by_ad('2026-09-01', '2026-09-30');
+  select e into x from jsonb_array_elements(a->'ads') e where e->>'ad_id' = 'AD1';
+  assert (x->>'spend')::numeric = 300 and (x->>'leads')::int = 3 and (x->>'matched')::int = 2, format('AD1 %s', x);
+  assert (x->>'quoted')::int = 2 and (x->>'booked')::int = 1 and (x->>'booked_value')::numeric = 800, format('AD1 outcomes %s', x);
+  assert (x->>'cost_per_quoted')::numeric = 150 and (x->>'cost_per_booked')::numeric = 300 and (x->>'roas')::numeric = 2.67, format('AD1 costs %s', x);
+  select e into x from jsonb_array_elements(a->'ads') e where e->>'ad_id' = 'AD2';
+  assert (x->>'leads')::int = 1 and (x->>'repeat_leads')::int = 1 and (x->>'booked')::int = 0 and x->>'cost_per_booked' is null, format('AD2 repeat lead not double counted %s', x);
+  assert (a->'ads'->0->>'ad_id') = 'AD1', 'sorted by spend';
+  raise notice 'ok  ads by ad: spend, leads, quoted, booked, cost per quoted/booked job, ROAS; repeat leads counted once';
+end $$;
+reset role;
+
 \echo ALL ACCESS TESTS PASSED

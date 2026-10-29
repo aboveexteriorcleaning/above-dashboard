@@ -1,7 +1,7 @@
 import { Shell, requireSession } from "@/components/Shell";
 import { Periods } from "@/components/Periods";
 import { Stat } from "@/components/charts";
-import { getAds, getMetaFreshness } from "@/lib/data";
+import { getAds, getAdsByAd, getMetaFreshness } from "@/lib/data";
 import { previousPeriod, resolvePeriod, type PeriodParams, periodLine } from "@/lib/periods";
 import * as ch from "@/lib/change";
 import { money, moneyExact, n, pct, shortDate, timeAgo } from "@/lib/format";
@@ -31,7 +31,7 @@ export default async function Ads({ searchParams }: { searchParams: Promise<Peri
   }
 
   const prev = previousPeriod(period);
-  const [a, pa] = await Promise.all([getAds(period.from, period.to), prev ? getAds(prev.from, prev.to) : null]);
+  const [a, pa, byAd] = await Promise.all([getAds(period.from, period.to), prev ? getAds(prev.from, prev.to) : null, getAdsByAd(period.from, period.to)]);
   const maxSpend = Math.max(...a.monthly.map((m) => m.spend), 1);
 
   return (
@@ -83,8 +83,44 @@ export default async function Ads({ searchParams }: { searchParams: Promise<Peri
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>
             New customers come from Jobber (first-ever job at the address, any channel), so these include referrals and calls that didn&rsquo;t come from an ad.
-            Use them to compare months; tying each booking to a specific ad comes once Meta lead forms are linked to Jobber.
+            Use them to compare months; the By ad table ties form leads to the ad they came from.
           </p>
+        </section>
+
+        <section className="section" aria-labelledby="byad-h">
+          <div className="section-head"><h2 id="byad-h">By ad</h2><span className="muted small">Leads from the Meta lead sheet{byAd.last_synced ? `, read ${timeAgo(byAd.last_synced)}` : ""}</span></div>
+          {!byAd.connected ? (
+            <p className="muted">Shows spend, quotes and bookings for each ad once the Meta lead sheet is connected.</p>
+          ) : byAd.ads.length ? (
+            <>
+              <div style={{ overflowX: "auto" }}>
+                <table className="rows" style={{ minWidth: 860 }}>
+                  <thead><tr>
+                    <th>Ad</th><th className="num">Spend</th><th className="num">Leads</th><th className="num">Quoted</th><th className="num">Booked</th>
+                    <th className="num">Per quoted job</th><th className="num">Per booked job</th><th className="num">Booked revenue</th><th className="num">ROAS</th>
+                  </tr></thead>
+                  <tbody>{byAd.ads.map((x) => (
+                    <tr key={x.ad_id}>
+                      <td><strong>{x.name ?? `Ad ${x.ad_id}`}</strong>{x.campaign && <div className="small muted">{x.campaign}</div>}</td>
+                      <td className="num">{money(x.spend)}</td>
+                      <td className="num">{n(x.leads)}{x.repeat_leads > 0 && <div className="small muted">{n(x.repeat_leads)} repeat</div>}</td>
+                      <td className="num">{n(x.quoted)}</td>
+                      <td className="num">{n(x.booked)}</td>
+                      <td className="num">{x.cost_per_quoted != null ? money(x.cost_per_quoted) : "—"}</td>
+                      <td className="num">{x.cost_per_booked != null ? money(x.cost_per_booked) : "—"}</td>
+                      <td className="num">{money(x.booked_value)}</td>
+                      <td className="num">{x.spend ? `${x.roas?.toFixed(2) ?? "0.00"}×` : "—"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <p className="muted small" style={{ maxWidth: "75ch" }}>
+                Each lead is matched to Jobber by phone: quoted within 60 days, booked within 90, the same as the Leads page. Someone who fills in a form twice
+                counts once, for the first ad they came from. Per quoted / booked job = the ad&rsquo;s spend this period ÷ its leads that got a quote / booked.
+                Bookings are reliable for leads from Oct 24 on, when lead profiles started carrying phone numbers.
+              </p>
+            </>
+          ) : <p className="muted">No ad spend or form leads in this period.</p>}
         </section>
 
         <section className="section" aria-labelledby="camp-h">

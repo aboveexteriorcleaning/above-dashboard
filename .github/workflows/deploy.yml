@@ -24,7 +24,7 @@ concurrency:
 
 env:
   PROJECT_ID: fmpbjesfoeupybflfrbd
-  FUNCTIONS: jobber-connect jobber-oauth-callback jobber-sync jobber-webhook quo-sync meta-sync google-connect google-oauth-callback google-sync
+  FUNCTIONS: jobber-connect jobber-oauth-callback jobber-sync jobber-webhook quo-sync meta-sync google-connect google-oauth-callback google-sync leads-sheet-sync
 
 jobs:
   test:
@@ -87,6 +87,7 @@ jobs:
                    supabase/migrations/20261026000036_upsell_rate.sql \
                    supabase/migrations/20261026000037_earnings.sql \
                    supabase/migrations/20261027000038_converted_counts_as_approved.sql \
+                   supabase/migrations/20261028000039_meta_lead_sheet.sql \
                    supabase/tests/access_rules_test.sql; do
             psql -v ON_ERROR_STOP=1 -q -d testdb -f "$f"
           done
@@ -135,7 +136,8 @@ jobs:
                    ../migrations/20261026000035_view_as.sql \
                    ../migrations/20261026000036_upsell_rate.sql \
                    ../migrations/20261026000037_earnings.sql \
-                   ../migrations/20261027000038_converted_counts_as_approved.sql; do
+                   ../migrations/20261027000038_converted_counts_as_approved.sql \
+                   ../migrations/20261028000039_meta_lead_sheet.sql; do
             psql -v ON_ERROR_STOP=1 -q -d synctest -f "$f"
           done
           SUPABASE_DB_URL=postgres://postgres:test@localhost:5432/synctest deno test -A tests/

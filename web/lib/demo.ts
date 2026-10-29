@@ -1,5 +1,5 @@
 // Sample data for previews and screenshots (DEMO_MODE=1). Not real customers or results.
-import type { Earnings, UpsellRate, TeamUpsellRate, ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
+import type { AdsByAd, Earnings, UpsellRate, TeamUpsellRate, ReviewKpis, Alerts, FinancialKpis, CustomerKpis, PlanExtras, UpsellKpis, CrewKpis, QualityKpis, SalesKpis, AdsKpis, Lead, LeadKpis, PlanCustomer, PlanKpis, PlanSales, TeamPlanSales, CommissionDay, CommissionSummary, CompanySummary, MyJob, Overview, Role, Scorecard, Session, TeamCommission, TeamMember, TeamScore, Today, TrendRow } from "./data";
 
 export const session = (role: Role): Session =>
   role === "owner"
@@ -332,3 +332,9 @@ export const teamUpsellRates = (): TeamUpsellRate[] => [
   { employee_id: "4", jobs: 9, upsold_jobs: 2, rate: 0.222, offered: 0, accepted: 0 },
 ];
 export const myEarnings = (): Earnings => ({ upsell_value: 410, upsell_commission: 46.5, upsell_commission_all_days: 61.5, plans_sold: 3, plan_bonus_each: 10, plan_earnings: 30 });
+export const adsByAd = (): AdsByAd => ({ connected: true, last_synced: new Date(Date.now() - 25 * 60_000).toISOString(), ads: [
+  { ad_id: "1", name: "guttersdiff2", campaign: "Gutters Oct", spend: 612.4, meta_leads: 21, leads: 20, repeat_leads: 1, matched: 15, quoted: 11, booked: 5, booked_value: 2380, cost_per_lead: 30.62, cost_per_quoted: 55.67, cost_per_booked: 122.48, roas: 3.89 },
+  { ad_id: "2", name: "roof-before-after", campaign: "Roof Sep26", spend: 488.1, meta_leads: 14, leads: 14, repeat_leads: 0, matched: 9, quoted: 6, booked: 2, booked_value: 1610, cost_per_lead: 34.86, cost_per_quoted: 81.35, cost_per_booked: 244.05, roas: 3.3 },
+  { ad_id: "3", name: "xmas-lights-reel", campaign: "Xmas Lights", spend: 301.9, meta_leads: 9, leads: 9, repeat_leads: 0, matched: 6, quoted: 5, booked: 3, booked_value: 2790, cost_per_lead: 33.54, cost_per_quoted: 60.38, cost_per_booked: 100.63, roas: 9.24 },
+  { ad_id: "4", name: "windows-carousel", campaign: "Window Sep26", spend: 145, meta_leads: 4, leads: 4, repeat_leads: 0, matched: 1, quoted: 0, booked: 0, booked_value: 0, cost_per_lead: 36.25, cost_per_quoted: null, cost_per_booked: null, roas: 0 },
+] });
