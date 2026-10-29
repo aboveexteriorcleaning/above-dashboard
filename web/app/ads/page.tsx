@@ -64,8 +64,8 @@ export default async function Ads({ searchParams }: { searchParams: Promise<Peri
             <Stat value={money(per(a.spend, a.attributed.quoted))} label="Cost per quoted job" change={ch.pct(per(a.spend, a.attributed.quoted), pa && per(pa.spend, pa.attributed.quoted), "down", money)} note={`${n(a.attributed.quoted)} form leads quoted`} />
             <Stat value={money(per(a.spend, a.attributed.booked))} label="Cost per booked job" change={ch.pct(per(a.spend, a.attributed.booked), pa && per(pa.spend, pa.attributed.booked), "down", money)} note={`${n(a.attributed.booked)} form leads booked, ${money(a.attributed.booked_value)} of work`} />
             <Stat value={money(per(a.attributed.realized_revenue, a.attributed.form_leads))} label="Revenue per lead" change={ch.pct(per(a.attributed.realized_revenue, a.attributed.form_leads), pa && per(pa.attributed.realized_revenue, pa.attributed.form_leads), "up", money)} note={`${money(a.attributed.realized_revenue)} completed so far, ${n(a.attributed.form_leads)} form leads`} />
-            <Stat value={a.spend ? `${(a.attributed.realized_revenue / a.spend).toFixed(2)}×` : "—"} label="Return on ad spend" change={ch.pct(per(a.attributed.realized_revenue, a.spend), pa && per(pa.attributed.realized_revenue, pa.spend))}
-              note={a.spend ? `Completed revenue ÷ spend; ${(a.attributed.booked_value / a.spend).toFixed(2)}× on booked work` : undefined} />
+            <Stat value={a.spend ? `${(a.attributed.booked_value / a.spend).toFixed(2)}×` : "—"} label="Return on ad spend" change={ch.pct(per(a.attributed.booked_value, a.spend), pa && per(pa.attributed.booked_value, pa.spend))}
+              note={a.spend ? `Booked revenue ÷ spend (${money(a.attributed.booked_value)} booked); ${(a.attributed.realized_revenue / a.spend).toFixed(2)}× on work completed so far` : undefined} />
           </div>
           <p className="muted small" style={{ maxWidth: "75ch" }}>
             {n(a.attributed.matched)} of {n(a.attributed.form_leads)} form leads match a Jobber client. Reliable from Oct 24, when lead profiles started carrying phone numbers.
